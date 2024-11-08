@@ -10,8 +10,7 @@ services:
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
       PERSISTENCE_DATA_PATH: "./weaviate_data"
       ENABLE_MODULES: "text2vec-openai"
-      WEAVIATE_OPENAI_API_KEY: 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
-
+      WEAVIATE_OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - "./weaviate_data:/var/lib/weaviate"
     depends_on:
