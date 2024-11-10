@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NetlingAI Chat</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    body { font-family: Arial, sans-serif; }
+    #chatWindow { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+    #messageInput { width: 80%; }
+    #sendButton, #newChatButton { width: 18%; }
+    #newChatButton { margin-left: 2%; }
+  </style>
+</head>
+<body>
+  <h1>NetlingAI Chat</h1>
+  
+  <div id="authSection">
+    <h2>Register</h2>
+    <input type="email" id="registerEmail" placeholder="Email">
+    <input type="password" id="registerPassword" placeholder="Password">
+    <input type="text" id="registerUsername" placeholder="Username">
+    <button id="registerButton">Register</button>
+    
+    <h2>Login</h2>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button id="loginButton">Login</button>
+    
+    <button id="logoutButton" style="display:none;">Logout</button>
+  </div>
+  
+  <div id="chatSection" style="display:none;">
+    <div id="chatControls">
+      <button id="newChatButton">New Chat</button>
+    </div>
+    <div id="chatWindow"></div>
+    <input type="text" id="messageInput" placeholder="Type your message here...">
+    <button id="sendButton">Send</button>
+  </div>
+  
+  <script type="module">
+    import { 
+      auth, 
+      signup, 
+      login, 
+      logout, 
+      sendChatMessageStream, 
+      createNewChat 
+    } from './firebase.js'; // Ensure the path is correct
+
+    // Initialize chatId
+    let currentChatId = null;
+
+    const registerButton = document.getElementById('registerButton');
+    const loginButton = document.getElementById('loginButton');
+    const logoutButton = document.getElementById('logoutButton');
+    const sendButton = document.getElementById('sendButton');
+    const newChatButton = document.getElementById('newChatButton'); // New button
+    const chatWindow = document.getElementById('chatWindow');
+    const messageInput = document.getElementById('messageInput');
+    const authSection = document.getElementById('authSection');
+    const chatSection = document.getElementById('chatSection');
+
+    /**
+     * Function to create a new chat without any initial message
+     */
+    async function handleCreateNewChat() {
+      try {
+        const newChatId = await createNewChat();
+        currentChatId = newChatId;
+        chatWindow.innerHTML = ''; // Clear the chat window
+        appendMessage('System', `New chat created with ID: ${currentChatId}`);
+        console.log(`New chat created: ${currentChatId}`);
+      } catch (error) {
+        console.error("Create New Chat Error:", error);
+        alert(`Failed to create a new chat: ${error.message}`);
+      }
+    }
+
+    // Handle user registration
+    registerButton.addEventListener('click', async () => {
+      const email = document.getElementById('registerEmail').value;
+      const password = document.getElementById('registerPassword').value;
+      const username = document.getElementById('registerUsername').value;
+      
+      try {
+        const user = await signup(email, password, username);
+        alert(`Registered successfully as ${user.displayName}`);
+        document.getElementById('registerEmail').value = '';
+        document.getElementById('registerPassword').value = '';
+        document.getElementById('registerUsername').value = '';
+      } catch (error) {
+        alert(`Registration failed: ${error.message}`);
+      }
+    });
+
+    // Handle user login
+    loginButton.addEventListener('click', async () => {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      
+      try {
+        const user = await login(email, password);
+        alert(`Logged in as ${user.displayName}`);
+        authSection.style.display = 'none';
+        chatSection.style.display = 'block';
+        logoutButton.style.display = 'inline-block';
+        newChatButton.style.display = 'inline-block'; // Show the New Chat button
+        document.getElementById('loginEmail').value = '';
+        document.getElementById('loginPassword').value = '';
+        
+        // Automatically create a new chat upon login
+        await handleCreateNewChat();
+      } catch (error) {
+        alert(`Login failed: ${error.message}`);
+      }
+    });
+
+    // Handle user logout
+    logoutButton.addEventListener('click', async () => {
+      try {
+        await logout();
+        alert('Logged out successfully.');
+        authSection.style.display = 'block';
+        chatSection.style.display = 'none';
+        logoutButton.style.display = 'none';
+        newChatButton.style.display = 'none'; // Hide the New Chat button
+        chatWindow.innerHTML = '';
+        currentChatId = null;
+      } catch (error) {
+        alert(`Logout failed: ${error.message}`);
+      }
+    });
+
+    // Handle sending chat messages
+    sendButton.addEventListener('click', async () => {
+      const message = messageInput.value.trim();
+      
+      if (!currentChatId) {
+        alert('No active chat. Please create a new chat.');
+        return;
+      }
+
+      if (!message) {
+        alert('Please enter a message.');
+        return;
+      }
+
+      // Display user message
+      appendMessage('User', message);
+      messageInput.value = '';
+
+      // Send message and handle streaming response
+      try {
+        await sendChatMessageStream(
+          currentChatId, 
+          message, 
+          (chunk) => {
+            appendMessage('Assistant', chunk);
+          }, 
+          (error) => {
+            // Display detailed error message
+            const errorMessage = error.message || "An unknown error occurred.";
+            appendMessage('Assistant', `Error: ${errorMessage}`);
+          }
+        );
+      } catch (error) {
+        // In case sendChatMessageStream throws an error
+        const errorMessage = error.message || "An unknown error occurred.";
+        appendMessage('Assistant', `Error: ${errorMessage}`);
+      }
+    });
+
+    /**
+     * Append a message to the chat window
+     * @param {string} sender 
+     * @param {string} message 
+     */
+    function appendMessage(sender, message) {
+      const messageElement = document.createElement('div');
+      messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+      chatWindow.appendChild(messageElement);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // Handle "New Chat" button click
+    newChatButton.addEventListener('click', async () => {
+      await handleCreateNewChat();
+    });
+
+    // Automatically create a new chat when the page loads if the user is already logged in
+    window.addEventListener('load', () => {
+      // This ensures that if the user is already authenticated, a new chat is created
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          authSection.style.display = 'none';
+          chatSection.style.display = 'block';
+          logoutButton.style.display = 'inline-block';
+          newChatButton.style.display = 'inline-block'; // Show the New Chat button
+          
+          // Automatically create a new chat if not already in a chat
+          if (!currentChatId) {
+            await handleCreateNewChat();
+          }
+        } else {
+          authSection.style.display = 'block';
+          chatSection.style.display = 'none';
+          logoutButton.style.display = 'none';
+          newChatButton.style.display = 'none';
+          chatWindow.innerHTML = '';
+          currentChatId = null;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
