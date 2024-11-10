@@ -1,5 +1,3 @@
-// frontend/firebase.js
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { 
   getAuth, 
@@ -11,20 +9,28 @@ import {
   getIdToken 
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDPOiSoJkT0g9iSYZYNuXq9C6oUULPJbrY",
-  authDomain: "neltingairag-27e31.firebaseapp.com",
-  projectId: "neltingairag-27e31",
-  storageBucket: "neltingairag-27e31.firebasestorage.app",
-  messagingSenderId: "473469555546",
-  appId: "1:473469555546:web:5273d1f9683800cab11963",
-  measurementId: "G-Q93XGQB5QH"
-};
+let app, auth;
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+/**
+ * Initialize Firebase dynamically by fetching configuration from the backend
+ */
+async function initializeFirebase() {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/firebase-config");
+    if (!response.ok) {
+      throw new Error("Failed to fetch Firebase configuration");
+    }
+    const firebaseConfig = await response.json();
+
+    // Initialize Firebase with fetched config
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+  } catch (error) {
+    console.error("Firebase initialization error:", error);
+  }
+}
+
+initializeFirebase();
 
 /**
  * Sign up a new user
@@ -92,9 +98,7 @@ async function createNewChat() {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        // "Content-Type": "application/json" // Not needed if no body is sent
       }
-      // No body is sent
     });
 
     if (!response.ok) {
@@ -109,7 +113,7 @@ async function createNewChat() {
   } catch (error) {
     console.error("Create New Chat Error:", error);
     alert(`Failed to create a new chat: ${error.message}`);
-    throw error; // Re-throw to allow upstream handling if necessary
+    throw error;
   }
 }
 
@@ -167,5 +171,5 @@ async function sendChatMessageStream(chatId, question, onMessage, onError) {
   }
 }
 
-// Export functions and Firebase auth instance
+// Export Firebase auth instance and functions
 export { auth, signup, login, logout, createNewChat, sendChatMessageStream };
