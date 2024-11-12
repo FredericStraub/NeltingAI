@@ -1,10 +1,10 @@
 import asyncio
 import logging
+from operator import itemgetter
 from langchain.chains import LLMChain
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from app.config import settings
-from app.assistants.tools import QueryKnowledgeBaseTool
 from app.utils.sse_stream import SSEStream
 from app.db import get_weaviate_client
 from app.assistants.prompts import MAIN_SYSTEM_PROMPT
@@ -14,8 +14,12 @@ from langfuse.callback import CallbackHandler
 from langfuse import Langfuse
 from langfuse.decorators import langfuse_context, observe
 from uuid import uuid4
+from langchain_weaviate.vectorstores import WeaviateVectorStore
+from langchain_core.output_parsers import StrOutputParser
 
+# Initialize logging
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # Initialize Langfuse without attaching callbacks
 langfuse = Langfuse(
@@ -29,28 +33,56 @@ def get_handler():
     return langfuse_context.get_current_langchain_handler()
 
 def build_chain():
-    """Builds the LangChain LLMChain without attaching callbacks."""
-    template = """
-    Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
-
-    Kontext:
-    {context}
-
-    Frage: {question}
-    Antwort:
-    """
-    prompt = ChatPromptTemplate.from_template(template)
-
-    # Initialize the ChatOpenAI model without callbacks
-    model = ChatOpenAI(
-        model_name=settings.LANGCHAIN_MODEL_NAME,
-        temperature=0.2,
-        openai_api_key=settings.OPENAI_API_KEY
-    )
+    """Builds the LangChain pipeline-style LLMChain integrated with vector retrieval."""
+    try:
+        # Initialize embeddings
+        embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+        
+        # Initialize Weaviate vector store and retriever
+        client = get_weaviate_client()
+        vectorstore = WeaviateVectorStore(
+            client=client,
+            index_name="ChatDocument",
+            text_key="content",
+            embedding=embeddings,
+        )
+        retriever = vectorstore.as_retriever(search_kwargs={"k": settings.VECTOR_SEARCH_TOP_K})
+        
+        # Define the prompt template
+        template = """
+        Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
     
-    # Create the LLMChain without callbacks
-    chain = LLMChain(llm=model, prompt=prompt, verbose=True)
-    return chain
+        Kontext:
+        {context}
+    
+        Frage: {question}
+        Antwort:
+        """
+        prompt = ChatPromptTemplate.from_template(template)
+        
+        # Initialize the ChatOpenAI model
+        model = ChatOpenAI(
+            model_name=settings.LANGCHAIN_MODEL_NAME,
+            temperature=0.2,
+            openai_api_key=settings.OPENAI_API_KEY
+        )
+        
+        # Build the pipeline-style chain
+        chain = (
+            {
+                "context": itemgetter("question") | retriever,
+                "question": itemgetter("question"),
+            }
+            | prompt
+            | model
+            | StrOutputParser()
+        )
+        
+        logger.info("Pipeline-style chain successfully built.")
+        return chain
+    except Exception as e:
+        logger.error(f"Failed to build chain: {e}")
+        raise e
 
 class RAGAssistant:
     def __init__(self, chat_id: str, firestore_client, user_id: str, history_size: int = 4, max_tool_calls: int = 3):
@@ -60,7 +92,7 @@ class RAGAssistant:
         self.history_size = history_size
         self.max_tool_calls = max_tool_calls
         
-        # Build chain without callbacks
+        # Build pipeline-style chain with integrated retriever
         self.chain = build_chain()
 
         self.sse_stream = SSEStream()
@@ -104,14 +136,8 @@ class RAGAssistant:
             })
             logger.info(f"User message appended to chat {self.chat_id}: {message}")
 
-            # Retrieve context from knowledge base
-            query_tool = QueryKnowledgeBaseTool()
-            context = await query_tool.ainvoke(message)
-            logger.debug(f"Retrieved context: {context}")
-
-            # Prepare the query with context and question
+            # Prepare the query with question (context retrieval is handled by the chain's retriever)
             query = {
-                "context": context,
                 "question": message
             }
 
@@ -132,7 +158,8 @@ class RAGAssistant:
             logger.info(f"Appended assistant response to chat {self.chat_id}: {response}")
 
             # Stream the response back to the client
-            await self.sse_stream.send(response["text"])
+            # Assuming response is a string. Adjust if necessary.
+            await self.sse_stream.send(response)
             logger.info(f"Streamed response to client for chat_id {self.chat_id}")
 
         except Exception as e:
@@ -168,3 +195,11 @@ class RAGAssistant:
         except Exception as e:
             logger.error(f"Failed to fetch data for chat_id {self.chat_id}: {e}")
             raise e
+
+# Example usage:
+# Make sure to initialize Firebase Admin SDK before using Firestore
+# firebase_admin.initialize_app()
+
+# firestore_client = admin_firestore.client()
+# assistant = RAGAssistant(chat_id="unique_chat_id", firestore_client=firestore_client, user_id="user_123")
+# sse_stream = asyncio.run(assistant.run("Your question here"))
