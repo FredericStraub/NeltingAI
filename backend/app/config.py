@@ -15,6 +15,30 @@ class Settings(BaseSettings):
     WEAVIATE_HOST: str = 'localhost'
     WEAVIATE_PORT: int = 8080
     MAIN_SYSTEM_PROMPT: str = "Your main system prompt here"
+    LANGFUSE_SECRET_KEY: str
+    LANGFUSE_PUBLIC_KEY: str
+    LANGFUSE_HOST: str 
+    FIREBASE_TYPE: str
+    FIREBASE_PROJECT_ID: str
+    FIREBASE_PRIVATE_KEY_ID: str
+    FIREBASE_PRIVATE_KEY: str
+    FIREBASE_CLIENT_EMAIL: str
+    FIREBASE_CLIENT_ID: str
+    FIREBASE_AUTH_URI: str
+    FIREBASE_TOKEN_URI: str
+    FIREBASE_AUTH_PROVIDER_X509_CERT_URL: str
+    FIREBASE_CLIENT_X509_CERT_URL: str
+    FIREBASE_UNIVERSE_DOMAIN: str
+    
+    # Frontend Firebase Config fields
+    FRONTEND_FIREBASE_API_KEY: str
+    FRONTEND_FIREBASE_AUTH_DOMAIN: str
+    FRONTEND_FIREBASE_PROJECT_ID: str
+    FRONTEND_FIREBASE_STORAGE_BUCKET: str
+    FRONTEND_FIREBASE_MESSAGING_SENDER_ID: str
+    FRONTEND_FIREBASE_APP_ID: str
+    FRONTEND_FIREBASE_MEASUREMENT_ID: str
+
     
     class Config:
         env_file = '/Volumes/External/Netling AI/backend/.env'

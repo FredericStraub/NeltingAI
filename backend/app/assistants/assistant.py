@@ -1,5 +1,3 @@
-# backend/app/assistants/assistant.py
-
 import asyncio
 import logging
 from langchain.chains import LLMChain
@@ -9,13 +7,29 @@ from app.config import settings
 from app.assistants.tools import QueryKnowledgeBaseTool
 from app.utils.sse_stream import SSEStream
 from app.db import get_weaviate_client
-from app.assistants.prompts import MAIN_SYSTEM_PROMPT  # Import des optimierten Prompts
-import firebase_admin.firestore as admin_firestore  # Aliased import
-from datetime import datetime, timezone  # Added import
+from app.assistants.prompts import MAIN_SYSTEM_PROMPT
+import firebase_admin.firestore as admin_firestore
+from datetime import datetime, timezone
+from langfuse.callback import CallbackHandler
+from langfuse import Langfuse
+from langfuse.decorators import langfuse_context, observe
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+# Initialize Langfuse without attaching callbacks
+langfuse = Langfuse(
+    secret_key=settings.LANGFUSE_SECRET_KEY,
+    public_key=settings.LANGFUSE_PUBLIC_KEY,
+    host=settings.LANGFUSE_HOST
+)
+
+def get_handler():
+    """Retrieve the current Langfuse handler from the context."""
+    return langfuse_context.get_current_langchain_handler()
+
 def build_chain():
+    """Builds the LangChain LLMChain without attaching callbacks."""
     template = """
     Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
 
@@ -25,17 +39,17 @@ def build_chain():
     Frage: {question}
     Antwort:
     """
-
     prompt = ChatPromptTemplate.from_template(template)
 
+    # Initialize the ChatOpenAI model without callbacks
     model = ChatOpenAI(
         model_name=settings.LANGCHAIN_MODEL_NAME,
-        temperature=0.0,
-        openai_api_key=settings.OPENAI_API_KEY,
+        temperature=0.2,
+        openai_api_key=settings.OPENAI_API_KEY
     )
-
-    chain = LLMChain(llm=model, prompt=prompt)
-
+    
+    # Create the LLMChain without callbacks
+    chain = LLMChain(llm=model, prompt=prompt, verbose=True)
     return chain
 
 class RAGAssistant:
@@ -45,19 +59,22 @@ class RAGAssistant:
         self.user_id = user_id
         self.history_size = history_size
         self.max_tool_calls = max_tool_calls
+        
+        # Build chain without callbacks
         self.chain = build_chain()
+
         self.sse_stream = SSEStream()
-        self.chat_ref = self.firestore.collection('chats').document(chat_id)  # Ensure 'chats' is lowercase
+        self.chat_ref = self.firestore.collection('chats').document(chat_id)
+        
         self.initialize_chat()
 
     def initialize_chat(self):
         try:
             chat_data = self.chat_ref.get().to_dict()
             if not chat_data:
-                # Perform Firestore set operation asynchronously
                 asyncio.create_task(self._async_firestore_set({
                     'user_id': self.user_id,
-                    'created_at': datetime.now(timezone.utc),  # Client-side timestamp
+                    'created_at': datetime.now(timezone.utc),
                     'messages': []
                 }))
                 logger.info(f"Initialized new chat with chat_id: {self.chat_id}")
@@ -70,63 +87,52 @@ class RAGAssistant:
         asyncio.create_task(self._handle_conversation_task(message))
         return self.sse_stream
 
+    @observe()
     async def _handle_conversation_task(self, message: str):
+        handler = get_handler()  # Get the current Langfuse handler in context
+        callbacks = [handler] if handler else []  # Ensure handler is not None
+
         try:
             # Append user message to Firestore asynchronously
             user_message = {
                 'role': 'user',
                 'content': message,
-                'created_at': datetime.now(timezone.utc)  # Client-side timestamp
+                'created_at': datetime.now(timezone.utc)
             }
             await self._async_firestore_update({
                 'messages': admin_firestore.ArrayUnion([user_message])
             })
-            logger.info(f"Appended user message to chat_id {self.chat_id}: {message}")
+            logger.info(f"User message appended to chat {self.chat_id}: {message}")
 
-            # Fetch recent messages asynchronously
-            chat_snapshot = await self._async_firestore_get()
-            chat_data = chat_snapshot.to_dict()
-            messages = chat_data.get('messages', [])[-self.history_size:]
-
-            # Initialize assistant prompts
-            system_message = {'role': 'system', 'content': settings.MAIN_SYSTEM_PROMPT}
-            messages = [system_message] + messages
-
-            # Instantiate QueryKnowledgeBaseTool without passing query_input
+            # Retrieve context from knowledge base
             query_tool = QueryKnowledgeBaseTool()
-
-            # Invoke the tool to get context
             context = await query_tool.ainvoke(message)
             logger.debug(f"Retrieved context: {context}")
 
-            # Prepare the query with the context and user information
+            # Prepare the query with context and question
             query = {
                 "context": context,
                 "question": message
             }
 
-            # Define a synchronous function to run the chain
-            def run_chain():
-                return self.chain.run(query)
-
-            # Run the chain in a separate thread to avoid blocking
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, run_chain)
-            logger.debug(f"AI Response: {response}")
+            # Execute chain with validated callbacks
+            response = await self.chain.ainvoke(query, config={"callbacks": callbacks})
+            logger.debug(f"AI Response Type: {type(response)}")
+            logger.debug(f"AI Response Content: {response}")
 
             # Append assistant message to Firestore asynchronously
             assistant_message = {
                 'role': 'assistant',
                 'content': response,
-                'created_at': datetime.now(timezone.utc)  # Client-side timestamp
+                'created_at': datetime.now(timezone.utc)
             }
             await self._async_firestore_update({
                 'messages': admin_firestore.ArrayUnion([assistant_message])
             })
-            logger.info(f"Appended assistant response to chat_id {self.chat_id}: {response}")
+            logger.info(f"Appended assistant response to chat {self.chat_id}: {response}")
 
             # Stream the response back to the client
-            await self.sse_stream.send(response)
+            await self.sse_stream.send(response["text"])
             logger.info(f"Streamed response to client for chat_id {self.chat_id}")
 
         except Exception as e:

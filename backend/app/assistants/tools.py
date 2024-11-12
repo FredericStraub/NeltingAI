@@ -36,10 +36,10 @@ class QueryKnowledgeBaseTool(BaseTool, BaseModel):
                 client=client,
                 index_name="ChatDocument",
                 text_key="content",
-                embedding=embeddings,  # Korrigierter Parameter
+                embedding=embeddings,  # Correct parameter
             )
             retriever = vectorstore.as_retriever(search_kwargs={"k": settings.VECTOR_SEARCH_TOP_K})
-            results = await retriever.aget_relevant_documents(query_input)
+            results = await retriever.ainvoke(query_input)
 
             formatted_sources = [
                 f"SOURCE: {doc.metadata.get('source', 'Unknown')}\n\"\"\"\n{doc.page_content}\n\"\"\""
@@ -47,7 +47,7 @@ class QueryKnowledgeBaseTool(BaseTool, BaseModel):
             ]
             context = "\n\n---\n\n".join(formatted_sources) + "\n\n---"
             logger.debug(f"Formatted context: {context}")
-            return context
+            return context  # Returns a string
         except Exception as e:
-            logger.exception(f"Error querying knowledge base: {e}")  # Stack Trace loggen
+            logger.exception(f"Error querying knowledge base: {e}")  # Logs stack trace
             return f"Error querying knowledge base: {str(e)}"

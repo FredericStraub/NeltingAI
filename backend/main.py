@@ -4,7 +4,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from app.api import auth_router, chat_router, chat_create_router, upload_router, admin_router
+from app.firebase import router as firebase_config_router  # Import the firebase router
 from app.config import settings
 import logging
 import sys
@@ -38,13 +40,14 @@ app.add_middleware(
 
 # Include API routers with appropriate prefixes and tags
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-
-# Include chat_create_router before chat_router to prevent route conflicts
 app.include_router(chat_create_router, prefix="/chat", tags=["Chat"])
 app.include_router(chat_router, prefix="/chat", tags=["Chat"])
-
 app.include_router(upload_router, prefix="/upload", tags=["Upload"])
 app.include_router(admin_router, prefix="/admin", tags=["Admin"])
+app.include_router(firebase_config_router, tags=["Configuration"])  # Include Firebase Config Router
+
+# Serve frontend static files
+app.mount("/", StaticFiles(directory="/Volumes/External/Netling AI/frontend", html=True), name="frontend")
 
 # Health Check Endpoint
 @app.get('/health', tags=["Health Check"])
