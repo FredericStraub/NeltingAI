@@ -1,5 +1,16 @@
 # backend/app/config.py
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, validator
+import logging
+
+# Configure a logger for the settings
+logger = logging.getLogger("settings")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 class Settings(BaseSettings):
     ALLOW_ORIGINS: str = 'http://localhost:5500'  # Replace with your frontend's URL
@@ -39,16 +50,20 @@ class Settings(BaseSettings):
     FRONTEND_FIREBASE_APP_ID: str
     FRONTEND_FIREBASE_MEASUREMENT_ID: str
 
-    
-    class Config:
-        env_file = '/Volumes/External/Netling AI/backend/.env'
+    # Define Pydantic v2 configuration
+    model_config = SettingsConfigDict(
+        env_file='/Volumes/External/Netling AI/backend/.env',
+        env_file_encoding='utf-8',
+    )
 
     @classmethod
-    def model_customise_sources(cls, init_settings, env_settings, file_secret_settings):
+    def customize_sources(cls, init_settings, env_settings, file_secret_settings):
+        """
+        Customize the order of settings sources to prioritize the `.env` file over environment variables.
+        """
         return (
-            init_settings,
-            file_secret_settings,  # Load .env after env_settings
-            env_settings,
+            file_secret_settings,  # Load from .env file first        # Then from environment variables
+            init_settings       # Then from initialization parameters
         )
 
 

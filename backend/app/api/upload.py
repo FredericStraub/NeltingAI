@@ -1,11 +1,12 @@
 # backend/app/api/upload.py
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 import os
 import aiofiles
 import logging
 from datetime import timedelta
-
-from app.api.admin import get_current_admin  # Correct dependency
+import asyncio
+from app.api.dependencies import get_current_admin  # Assuming only admins can upload
 from app.loader import ingest_and_index
 from app.config import settings
 from app.firebase import get_storage_bucket
@@ -14,10 +15,10 @@ router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
-@router.post("/upload-file/", status_code=201)
+@router.post("/upload-file/", status_code=201, tags=["Upload"])
 async def upload_file(
     file: UploadFile = File(...),
-    admin_uid: str = Depends(get_current_admin),  # Correct dependency
+    admin_user: dict = Depends(get_current_admin),  # Only admins can upload
 ):
     if not (file.filename.endswith(".pdf") or file.filename.endswith(".docx")):
         raise HTTPException(
@@ -27,7 +28,7 @@ async def upload_file(
 
     # Define the storage path in Firebase Storage
     storage_bucket = get_storage_bucket()
-    blob = storage_bucket.blob(f"uploads/{admin_uid}/{file.filename}")
+    blob = storage_bucket.blob(f"uploads/{admin_user.get('uid')}/{file.filename}")
 
     try:
         # Save the uploaded file to disk
@@ -38,7 +39,7 @@ async def upload_file(
             await out_file.write(content)
 
         # Upload file to Firebase Storage
-        await blob.upload_from_filename(file_path, content_type=file.content_type)
+        await asyncio.to_thread(blob.upload_from_filename, file_path, content_type=file.content_type)
         os.remove(file_path)  # Clean up the local file
 
         # Generate a signed URL for the uploaded file (valid for 1 day)

@@ -1,3 +1,5 @@
+# backend/app/assistants/assistant.py
+
 import asyncio
 import logging
 from operator import itemgetter
@@ -10,13 +12,14 @@ from app.db import get_weaviate_client
 from app.assistants.prompts import MAIN_SYSTEM_PROMPT
 import firebase_admin.firestore as admin_firestore
 from datetime import datetime, timezone
-from langfuse.callback import CallbackHandler
-from langfuse import Langfuse
-from langfuse.decorators import langfuse_context, observe
 from uuid import uuid4
 from langchain_weaviate.vectorstores import WeaviateVectorStore
 from langchain_core.output_parsers import StrOutputParser
-
+import langfuse
+# Import the custom callback handler
+from langfuse.callback import CallbackHandler
+from langfuse import Langfuse
+from langfuse.decorators import langfuse_context, observe
 # Initialize logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -121,8 +124,11 @@ class RAGAssistant:
 
     @observe()
     async def _handle_conversation_task(self, message: str):
-        handler = get_handler()  # Get the current Langfuse handler in context
-        callbacks = [handler] if handler else []  # Ensure handler is not None
+        langfuse_context.update_current_trace(
+            session_id=self.chat_id,
+            user_id=self.user_id
+        )
+        langfuse_handler = langfuse_context.get_current_langchain_handler()
 
         try:
             # Append user message to Firestore asynchronously
@@ -142,7 +148,7 @@ class RAGAssistant:
             }
 
             # Execute chain with validated callbacks
-            response = await self.chain.ainvoke(query, config={"callbacks": callbacks})
+            response = await self.chain.ainvoke(query, config={"callbacks": [langfuse_handler]})
             logger.debug(f"AI Response Type: {type(response)}")
             logger.debug(f"AI Response Content: {response}")
 
@@ -195,11 +201,3 @@ class RAGAssistant:
         except Exception as e:
             logger.error(f"Failed to fetch data for chat_id {self.chat_id}: {e}")
             raise e
-
-# Example usage:
-# Make sure to initialize Firebase Admin SDK before using Firestore
-# firebase_admin.initialize_app()
-
-# firestore_client = admin_firestore.client()
-# assistant = RAGAssistant(chat_id="unique_chat_id", firestore_client=firestore_client, user_id="user_123")
-# sse_stream = asyncio.run(assistant.run("Your question here"))

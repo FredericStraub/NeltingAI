@@ -1,8 +1,6 @@
-# backend/app/api/__init__.py
-
 from .auth import router as auth_router
 from .chat import router as chat_router
-from .chat_create import router as chat_create_router  # Import the new router
+from .chat_create import router as chat_create_router
 from .upload import router as upload_router
 from .admin import router as admin_router
 
