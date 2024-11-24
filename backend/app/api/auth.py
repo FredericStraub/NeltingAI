@@ -8,14 +8,28 @@ from app.firebase import get_auth_client, verify_firebase_id_token, get_firestor
 from app.config import settings
 import logging
 from firebase_admin import firestore
-from models import UserIn, UserOut, Token
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Pydantic Models
+class UserIn(BaseModel):
+    email: str
+    password: str
+    username: str  # Added username field
+
+class UserOut(BaseModel):
+    uid: str
+    email: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
 # Initialize OAuth2PasswordBearer to expect token in Authorization header
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://127.0.0.1:8000/auth/login")
 
 async def verify_firebase_token(token: str = Depends(oauth2_scheme)):
     try:
@@ -42,7 +56,7 @@ def register(user_in: UserIn):
 
         # Create corresponding Firestore User document
         firestore_client = get_firestore_client()
-        user_doc_ref = firestore_client.collection('user').document(user.uid)  # Use 'users' collection for clarity
+        user_doc_ref = firestore_client.collection('user').document(user.uid)  # Use 'user' collection for clarity
         user_doc_ref.set({
             "uid": user.uid,  # Store UID within the document
             "username": user_in.username,

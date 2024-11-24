@@ -33,7 +33,7 @@ def build_chain():
     logger.info("Langfuse CallbackHandler successfully initialized.")
 
     model = ChatOpenAI(
-        model_name=settings.LANGCHAIN_MODEL_NAME,
+        model_name=settings.MODEL,
         temperature=0.2,  # Adjusted for more dynamic responses
         openai_api_key=settings.OPENAI_API_KEY,
         callbacks=[]  # Removed Langfuse callbacks for testing

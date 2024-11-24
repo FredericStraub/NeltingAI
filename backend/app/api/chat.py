@@ -28,14 +28,15 @@ async def chat(
         if not chat_doc.exists:
             logger.warning(f"Chat ID {chat_id} does not exist.")
             raise HTTPException(status_code=404, detail="Chat not found.")
-        if chat_doc.to_dict().get('user_id') != current_user.uid:
+        if chat_doc.to_dict().get('user_id') != current_user["uid"]:
             logger.warning(f"User {current_user.uid} attempted to access chat {chat_id} not owned by them.")
             raise HTTPException(status_code=403, detail="Not authorized to access this chat.")
         
         assistant = RAGAssistant(
             chat_id=chat_id, 
             firestore_client=firestore_client, 
-            user_id=current_user.uid,
+            user_id=current_user["uid"],
+            user_name=current_user["username"]
         )
         sse_stream = await assistant.run(message=chat_in.question)  # Await the asynchronous run method
         return EventSourceResponse(sse_stream)

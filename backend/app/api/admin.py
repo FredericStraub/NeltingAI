@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from app.api.dependencies import get_current_admin
 from app.firebase import get_firestore_client
 import logging
-from models import AdminAssignRole
+from app.models import AdminAssignRole
 logger = logging.getLogger(__name__)
 
 router = APIRouter()

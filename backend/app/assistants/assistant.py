@@ -54,7 +54,8 @@ def build_chain():
         # Define the prompt template
         template = """
         Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
-    
+        Hier ist der jetzige Konverations Verlauf zwischen dir und dem jetzigen Nutzer: {history}
+        Wenn dieser leer ist Begrüße den Nutzer bitte mit seinem Namen: {name} 
         Kontext:
         {context}
     
@@ -65,7 +66,7 @@ def build_chain():
         
         # Initialize the ChatOpenAI model
         model = ChatOpenAI(
-            model_name=settings.LANGCHAIN_MODEL_NAME,
+            model_name=settings.MODEL,
             temperature=0.2,
             openai_api_key=settings.OPENAI_API_KEY
         )
@@ -75,6 +76,9 @@ def build_chain():
             {
                 "context": itemgetter("question") | retriever,
                 "question": itemgetter("question"),
+                "name": itemgetter("username"),
+                "history": itemgetter("history")
+                
             }
             | prompt
             | model
@@ -88,13 +92,13 @@ def build_chain():
         raise e
 
 class RAGAssistant:
-    def __init__(self, chat_id: str, firestore_client, user_id: str, history_size: int = 4, max_tool_calls: int = 3):
+    def __init__(self, chat_id: str, firestore_client, user_id: str, user_name: str, history_size: int = 4, max_tool_calls: int = 3):
         self.chat_id = chat_id
         self.firestore = firestore_client
         self.user_id = user_id
         self.history_size = history_size
         self.max_tool_calls = max_tool_calls
-        
+        self.user_name= user_name
         # Build pipeline-style chain with integrated retriever
         self.chain = build_chain()
 
@@ -141,10 +145,13 @@ class RAGAssistant:
                 'messages': admin_firestore.ArrayUnion([user_message])
             })
             logger.info(f"User message appended to chat {self.chat_id}: {message}")
+            history= await self._fetch_and_format_history()
 
             # Prepare the query with question (context retrieval is handled by the chain's retriever)
             query = {
-                "question": message
+                "question": message,
+                "username": self.user_name,
+                "history": history
             }
 
             # Execute chain with validated callbacks
@@ -174,6 +181,32 @@ class RAGAssistant:
         finally:
             await self.sse_stream.close()
             logger.info(f"Closed SSE stream for chat_id {self.chat_id}")
+
+
+
+    async def _fetch_and_format_history(self) -> str:
+        """
+        Fetches the last `history_size` messages from Firestore and formats them into a string.
+        """
+        try:
+            chat_snapshot = await self._async_firestore_get()
+            messages = chat_snapshot.to_dict().get('messages', [])
+            # Ensure messages are sorted by 'created_at'
+            messages_sorted = sorted(messages, key=lambda x: x['created_at'])
+            # Get the last `history_size` messages
+            last_messages = messages_sorted[-self.history_size:]
+            # Format messages into a string
+            history_str = ""
+            for msg in last_messages:
+                role = msg.get('role', 'unknown').capitalize()
+                content = msg.get('content', '')
+                history_str += f"{role}: {content}\n"
+            return history_str.strip()
+        except Exception as e:
+            logger.error(f"Failed to fetch and format history for chat {self.chat_id}: {e}")
+            return ""    
+        
+
 
     async def _async_firestore_set(self, data: dict):
         loop = asyncio.get_event_loop()

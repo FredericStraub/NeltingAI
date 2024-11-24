@@ -1,51 +1,64 @@
 # backend/app/api/dependencies.py
 
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from app.firebase import verify_firebase_id_token, get_firestore_client
-from app.models import User  # Now defined
+from firebase_admin import auth
+from app.firebase import get_firestore_client
 import logging
 
 logger = logging.getLogger(__name__)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+auth_scheme = HTTPBearer()
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+def verify_firebase_token(token: str) -> dict:
     try:
-        uid = verify_firebase_id_token(token)
-        firestore_client = get_firestore_client()
-        user_doc = firestore_client.collection('user').document(uid).get()
-        if not user_doc.exists:
-            logger.warning(f"User document not found for UID: {uid}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        user_data = user_doc.to_dict()
-        user = User(
-            uid=uid,
-            email=user_data.get('email', ''),
-            username=user_data.get('username', '')
-            # Populate other fields if available
-        )
-        return user
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Token verification failed: {e}")
+        return auth.verify_id_token(token)
+    except auth.ExpiredIdTokenError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired token"
+        )
+    except auth.InvalidIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Error: {str(e)}"
         )
 
-async def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.username != 'admin':  # Adjust based on your admin identification logic
-        logger.warning(f"User {current_user.uid} attempted to access admin-only route.")
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(auth_scheme),
+) -> dict:
+    token = credentials.credentials
+    decoded_token = verify_firebase_token(token)
+    uid = decoded_token.get("uid")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Fetch additional user information from Firestore
+    firestore_client = get_firestore_client()
+    user_doc = firestore_client.collection("user").document(uid).get()
+    if not user_doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user_data = user_doc.to_dict()
+
+    # Merge Firestore data with the decoded token
+    full_user_data = {**decoded_token, **user_data}
+
+    return full_user_data
+
+async def get_current_admin(current_user: dict = Depends(get_current_user)):
+    firestore_client = get_firestore_client()
+    user_doc = firestore_client.collection("user").document(current_user["uid"]).get()
+    if not user_doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_data = user_doc.to_dict()
+    logger.debug(f"Checking admin role for user: {current_user}")
+    if user_data.get("role") != "admin":  # Adjust role check
+        logger.warning(f"User {current_user['uid']} attempted to access admin-only route.")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     return current_user

@@ -13,9 +13,9 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 class Settings(BaseSettings):
-    ALLOW_ORIGINS: str = 'http://localhost:5500'  # Replace with your frontend's URL
+    ALLOW_ORIGINS: str  # Replace with your frontend's URL
     OPENAI_API_KEY: str
-    LANGCHAIN_MODEL_NAME: str = 'gpt-3.5-turbo'
+    MODEL: str 
     EMBEDDING_MODEL: str = 'text-embedding-ada-002'
     EMBEDDING_DIMENSIONS: int = 1024
     DOCS_DIR: str = 'data/docs'
@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     FIREBASE_CLIENT_X509_CERT_URL: str
     FIREBASE_UNIVERSE_DOMAIN: str
     
+    UPLOAD_DIR: str 
     # Frontend Firebase Config fields
     FRONTEND_FIREBASE_API_KEY: str
     FRONTEND_FIREBASE_AUTH_DOMAIN: str
