@@ -15,22 +15,17 @@ from datetime import datetime, timezone
 from uuid import uuid4
 from langchain_weaviate.vectorstores import WeaviateVectorStore
 from langchain_core.output_parsers import StrOutputParser
-import langfuse
 # Import the custom callback handler
-from langfuse.callback import CallbackHandler
-from langfuse import Langfuse
 from langfuse.decorators import langfuse_context, observe
 # Initialize logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Langfuse without attaching callbacks
-langfuse = Langfuse(
+langfuse_context.configure(
     secret_key=settings.LANGFUSE_SECRET_KEY,
     public_key=settings.LANGFUSE_PUBLIC_KEY,
     host=settings.LANGFUSE_HOST
 )
-
 def get_handler():
     """Retrieve the current Langfuse handler from the context."""
     return langfuse_context.get_current_langchain_handler()
@@ -40,7 +35,8 @@ def build_chain():
     try:
         # Initialize embeddings
         embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
-        
+        logger.info(f"Langfuse host: {settings.LANGFUSE_HOST}")
+        logger.info(f"Langfuse public key: {settings.LANGFUSE_PUBLIC_KEY}")
         # Initialize Weaviate vector store and retriever
         client = get_weaviate_client()
         vectorstore = WeaviateVectorStore(
