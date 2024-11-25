@@ -1,43 +1,33 @@
 # backend/app/assistants/assistant.py
-
 import asyncio
 import logging
 from operator import itemgetter
-from langchain.chains import LLMChain
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from app.config import settings
 from app.utils.sse_stream import SSEStream
 from app.db import get_weaviate_client
-from app.assistants.prompts import MAIN_SYSTEM_PROMPT
 import firebase_admin.firestore as admin_firestore
 from datetime import datetime, timezone
-from uuid import uuid4
 from langchain_weaviate.vectorstores import WeaviateVectorStore
-from langchain_core.output_parsers import StrOutputParser
-# Import the custom callback handler
-from langfuse.decorators import langfuse_context, observe
+from langchain.schema import StrOutputParser
+from langfuse.callback import CallbackHandler
+import os
+
+# Get keys project from the project settings page
+
+
 # Initialize logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-langfuse_context.configure(
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    host=settings.LANGFUSE_HOST
-)
-def get_handler():
-    """Retrieve the current Langfuse handler from the context."""
-    return langfuse_context.get_current_langchain_handler()
 
 def build_chain():
     """Builds the LangChain pipeline-style LLMChain integrated with vector retrieval."""
     try:
         # Initialize embeddings
         embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
-        logger.info(f"Langfuse host: {settings.LANGFUSE_HOST}")
-        logger.info(f"Langfuse public key: {settings.LANGFUSE_PUBLIC_KEY}")
-        # Initialize Weaviate vector store and retriever
+        
         client = get_weaviate_client()
         vectorstore = WeaviateVectorStore(
             client=client,
@@ -50,8 +40,8 @@ def build_chain():
         # Define the prompt template
         template = """
         Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
-        Hier ist der jetzige Konverations Verlauf zwischen dir und dem jetzigen Nutzer: {history}
-        Wenn dieser leer ist Begrüße den Nutzer bitte mit seinem Namen: {name} 
+        Hier ist der jetzige Konversationsverlauf zwischen dir und dem jetzigen Nutzer: {history}
+        Wenn dieser leer ist, begrüße den Nutzer bitte mit seinem Namen: {name}
         Kontext:
         {context}
     
@@ -64,7 +54,8 @@ def build_chain():
         model = ChatOpenAI(
             model_name=settings.MODEL,
             temperature=0.2,
-            openai_api_key=settings.OPENAI_API_KEY
+            openai_api_key=settings.OPENAI_API_KEY,
+            streaming=True
         )
         
         # Build the pipeline-style chain
@@ -74,7 +65,6 @@ def build_chain():
                 "question": itemgetter("question"),
                 "name": itemgetter("username"),
                 "history": itemgetter("history")
-                
             }
             | prompt
             | model
@@ -88,13 +78,12 @@ def build_chain():
         raise e
 
 class RAGAssistant:
-    def __init__(self, chat_id: str, firestore_client, user_id: str, user_name: str, history_size: int = 4, max_tool_calls: int = 3):
+    def __init__(self, chat_id: str, firestore_client, user_id: str, user_name: str, history_size: int = 4):
         self.chat_id = chat_id
         self.firestore = firestore_client
         self.user_id = user_id
         self.history_size = history_size
-        self.max_tool_calls = max_tool_calls
-        self.user_name= user_name
+        self.user_name = user_name
         # Build pipeline-style chain with integrated retriever
         self.chain = build_chain()
 
@@ -122,14 +111,7 @@ class RAGAssistant:
         asyncio.create_task(self._handle_conversation_task(message))
         return self.sse_stream
 
-    @observe()
     async def _handle_conversation_task(self, message: str):
-        langfuse_context.update_current_trace(
-            session_id=self.chat_id,
-            user_id=self.user_id
-        )
-        langfuse_handler = langfuse_context.get_current_langchain_handler()
-
         try:
             # Append user message to Firestore asynchronously
             user_message = {
@@ -141,7 +123,8 @@ class RAGAssistant:
                 'messages': admin_firestore.ArrayUnion([user_message])
             })
             logger.info(f"User message appended to chat {self.chat_id}: {message}")
-            history= await self._fetch_and_format_history()
+
+            history = await self._fetch_and_format_history()
 
             # Prepare the query with question (context retrieval is handled by the chain's retriever)
             query = {
@@ -150,34 +133,45 @@ class RAGAssistant:
                 "history": history
             }
 
-            # Execute chain with validated callbacks
-            response = await self.chain.ainvoke(query, config={"callbacks": [langfuse_handler]})
-            logger.debug(f"AI Response Type: {type(response)}")
-            logger.debug(f"AI Response Content: {response}")
+            # Initialize LangFuse CallbackHandler
+            langfuse_handler = CallbackHandler(public_key=settings.LANGFUSE_PUBLIC_KEY,secret_key=settings.LANGFUSE_SECRET_KEY,host="https://cloud.langfuse.com",session_id=self.chat_id,user_id=self.user_id)
+            langfuse_handler.auth_check()
+            # Initialize an empty string to collect the assistant's response
+            assistant_response = ""
 
-            # Append assistant message to Firestore asynchronously
+            # Execute the chain with the langfuse_handler
+            async for chunk in self.chain.astream(
+                query,
+                config={"callbacks": [langfuse_handler]}
+            ):
+                # Each chunk is an AIMessageChunk or similar object
+                # Extract the content and send it via SSE
+                if hasattr(chunk, 'content'):
+                    token = chunk.content
+                    assistant_response += token
+                    await self.sse_stream.send(token)
+                else:
+                    token = str(chunk)
+                    assistant_response += token
+                    await self.sse_stream.send(token)
+
+            # After chain execution, store the full assistant response
             assistant_message = {
                 'role': 'assistant',
-                'content': response,
+                'content': assistant_response,
                 'created_at': datetime.now(timezone.utc)
             }
             await self._async_firestore_update({
                 'messages': admin_firestore.ArrayUnion([assistant_message])
             })
-            logger.info(f"Appended assistant response to chat {self.chat_id}: {response}")
-
-            # Stream the response back to the client
-            # Assuming response is a string. Adjust if necessary.
-            await self.sse_stream.send(response)
-            logger.info(f"Streamed response to client for chat_id {self.chat_id}")
+            logger.info(f"Appended assistant response to chat {self.chat_id}")
 
         except Exception as e:
-            logger.error(f'Error in conversation task for chat_id {self.chat_id}: {str(e)}')
+            logger.exception(f'Error in conversation task for chat_id {self.chat_id}')
             await self.sse_stream.send(f"Error: {str(e)}")
         finally:
             await self.sse_stream.close()
             logger.info(f"Closed SSE stream for chat_id {self.chat_id}")
-
 
 
     async def _fetch_and_format_history(self) -> str:
