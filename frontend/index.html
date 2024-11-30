@@ -2,35 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>NeltingAI Chat</title>
+  <title>NeltingAI Chat🌎</title>
   <link rel="stylesheet" href="styles.css">
-
-  <style>
-    body { font-family: Arial, sans-serif; }
-    #chatWindow { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
-    #messageInput { width: 80%; }
-    #sendButton, #newChatButton { width: 18%; }
-    #newChatButton { margin-left: 2%; }
-  </style>
+  
 </head>
 <body>
-  <h1>NeltingAI Chat</h1>
   
+  <header class="headerheader" id="header">
+    <div class="header-wrapper">
+      <h1 id="mainheader">Nelting AI</h1>
+      <a href="login.html" class="login-button">
+        Login
+        <span class="login-icon">
+          <img src="https://www.neltings-welt.de/files/daten/icon/icon-login.svg" alt="Login Icon" class="icon-image">
+        </span>
+      </a>
+    </div>
+  </header>
+
   <div id="authSection">
-    <h2>Register</h2>
+    <h2 class="authheader">Registrieren</h2>
     <input type="email" id="registerEmail" placeholder="Email">
     <input type="password" id="registerPassword" placeholder="Password">
     <input type="text" id="registerUsername" placeholder="Username">
     <button id="registerButton">Register</button>
-    
-    <h2>Login</h2>
+
+    <h2 class="authheader">Login</h2>
     <input type="email" id="loginEmail" placeholder="Email">
     <input type="password" id="loginPassword" placeholder="Password">
     <button id="loginButton">Login</button>
-    
+
     <button id="logoutButton" style="display:none;">Logout</button>
   </div>
-  
+
   <div id="chatSection" style="display:none;">
     <div id="chatControls">
       <button id="newChatButton">New Chat</button>

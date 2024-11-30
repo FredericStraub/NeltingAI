@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Nelting AI Chat</title>
+  <!-- Include styles -->
+  <link rel="stylesheet" href="styles.css?v=1.2">
+</head>
+<body>
+  <header class="headerheader" id="header">
+    <div class="header-wrapper">
+      <h1 id="mainheader">Netling AI Chat</h1>
+      <button id="logoutButton" aria-label="Logout">Logout</button>
+    </div>
+  </header>
+
+  <div id="chatSection">
+    <div id="chatControls">
+      <!-- System Message Container -->
+      <button id="newChatButton">New Chat</button>
+      <div id="systemMessage" class="system-message">
+        <!-- System messages will appear here -->
+      </div>
+    </div>
+
+    <div id="chatWindow"></div>
+
+    <div id="chatInputContainer">
+      <!-- Contenteditable div for message input -->
+      <div id="messageInput" contenteditable="true" aria-label="Type your message" data-placeholder="Ask the Netling AI" role="textbox" aria-multiline="false"></div>
+      <button id="sendButton" class="btn btn-send" aria-label="Send Message">Send</button>
+    </div>
+  </div>
+
+  <!-- Include marked and DOMPurify via CDN -->
+  <script type="module" src="ui.js"></script>
+  <script type="module" src="chat.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

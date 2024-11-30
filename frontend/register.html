@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - NeltingAI</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="headerheader" id="header">
+        <div class="header-wrapper">
+          <h1 id="mainheader">Nelting AI</h1>
+          <a href="login.html" class="login-button">
+            Login
+            <span class="login-icon">
+              <img src="https://www.neltings-welt.de/files/daten/icon/icon-login.svg" alt="Login Icon" class="icon-image">
+            </span>
+          </a>
+        </div>
+      </header>
+
+  <div id="authSection">
+    <h2 class="authheader">Registrieren</h2>
+    <input type="email" id="registerEmail" placeholder="Email">
+    <input type="password" id="registerPassword" placeholder="Password">
+    <input type="text" id="registerUsername" placeholder="Username">
+    <button id="registerButton">Register</button>
+
+    <p class="auth-footer">
+      Bereits ein Konto? <a href="login.html">Jetzt <strong>einloggen</strong></a>.
+    </p>
+  </div>
+
+  <script type="module">
+    import { signup } from './firebase.js';
+
+    const registerButton = document.getElementById('registerButton');
+
+    // Handle user registration
+    registerButton.addEventListener('click', async () => {
+      const email = document.getElementById('registerEmail').value;
+      const password = document.getElementById('registerPassword').value;
+      const username = document.getElementById('registerUsername').value;
+
+      try {
+        const user = await signup(email, password, username);
+        alert(`Registered successfully as ${user.displayName}`);
+        window.location.href = "login.html"; // Redirect to login after registration
+      } catch (error) {
+        alert(`Registration failed: ${error.message}`);
+      }
+    });
+  </script>
+</body>
+</html>

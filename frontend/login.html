@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - NeltingAI</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="headerheader" id="header">
+        <div class="header-wrapper">
+          <h1 id="mainheader">Nelting AI</h1>
+          <a href="login.html" class="login-button">
+            Login
+            <span class="login-icon">
+              <img src="https://www.neltings-welt.de/files/daten/icon/icon-login.svg" alt="Login Icon" class="icon-image">
+            </span>
+          </a>
+        </div>
+      </header>
+
+  <div id="authSection">
+    <h2 class="authheader">Login</h2>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button id="loginButton">Login</button>
+
+    <p class="auth-footer">
+      Noch kein Konto? <a href="register.html">Jetzt <strong>registrieren</strong></a>.
+    </p>
+  </div>
+
+  <script type="module">
+    import { login, auth } from './firebase.js';
+
+    const loginButton = document.getElementById('loginButton');
+    const authSection = document.getElementById('authSection');
+
+    // Handle user login
+    loginButton.addEventListener('click', async () => {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const user = await login(email, password);
+        window.location.href = "chat.html"; // Redirect to chat after login
+      } catch (error) {
+        alert(`Login failed: ${error.message}`);
+      }
+    });
+  </script>
+</body>
+</html>

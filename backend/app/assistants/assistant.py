@@ -144,6 +144,7 @@ class RAGAssistant:
                 query,
                 config={"callbacks": [langfuse_handler]}
             ):
+                logger.info(repr(chunk))
                 # Each chunk is an AIMessageChunk or similar object
                 # Extract the content and send it via SSE
                 if hasattr(chunk, 'content'):

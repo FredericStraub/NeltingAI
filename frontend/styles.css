@@ -1,70 +1,485 @@
+/* Reset margin and padding for consistent layout */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%; /* Ensure body takes full height */
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background-color: #f4f4f9;
-    color: #333;
-  }
-  
-  h1, h2, h3 {
-    color: #4a90e2;
-  }
-  
-  #auth-section, #chat-section {
-    width: 300px;
-    margin-top: 20px;
-  }
-  
-  input[type="text"], input[type="email"], input[type="password"] {
-    width: 100%;
-    padding: 8px;
-    margin: 5px 0;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-  
-  button {
-    width: 100%;
-    padding: 10px;
+  font-family: 'Noto Sans', sans-serif; /* Changed to match imported font */
+  display: flex; /* Enable flexbox for alignment */
+  flex-direction: column; /* Stack children vertically */
+  align-items: center; /* Center horizontally */
+  padding-top: 150px; /* Offset the fixed header height */
+  background-color: #b2b2b2;
+  color: #333;
+  min-height: 100vh; /* Ensure it covers the full viewport height */
+  box-sizing: border-box; /* Ensure padding doesn't affect dimensions */
+}
+
+/* Full-width header */
+.headerheader {
+  position: fixed; /* Keep the header fixed at the top */
+  top: 0;
+  left: 0;
+  width: 100%; /* Full width of the viewport */
+  height: 150px; /* Fixed height */
+  background-color: #3a3a39;
+  background-image: url(header.jpg);
+  background-repeat: no-repeat;
+  background-position: right center; /* Align background image to the right and center vertically */
+  background-size: contain; /* Maintain the image's aspect ratio */
+  display: flex; /* Enable flexbox for layout */
+  justify-content: center; /* Center the content (title) horizontally */
+  align-items: center; /* Center the content vertically */
+  padding: 0 20px; /* Add horizontal padding */
+  box-sizing: border-box; /* Include padding in width calculations */
+  z-index: 1000; /* Ensure the header stays on top */
+}
+
+/* Wrapper to space login and logout buttons */
+.header-wrapper {
+  display: flex; /* Enable flexbox for alignment */
+  justify-content: center; /* Horizontally center the title */
+  align-items: center; /* Vertically center the title */
+  position: relative; /* For absolute positioning of buttons */
+  height: 100%; /* Match the height of the header */
+  width: 100%; /* Match the width of the header */
+}
+
+/* Center the main header */
+#mainheader {
+  color: #c7b05a; /* Text color */
+  font-size: 26px; /* Adjust font size */
+  margin: 0; /* Remove default margins */
+  font-weight: lighter; /* Font weight */
+  text-align: center; /* Center text */
+}
+
+/* Login and Logout button styling */
+.login-button, #logoutButton {
+  width: 100px; /* Fixed width */
+  height: 40px; /* Increased height for better visibility */
+  position: absolute; /* Position absolutely within the header */
+  top: 50%; /* Center vertically */
+  right: 20px; /* Align to the right edge */
+  transform: translateY(-50%); /* Adjust for perfect vertical centering */
+  color: #fff; /* Text color */
+  padding: 0; /* Remove padding to fit fixed size */
+  display: flex; /* Enable flexbox for layout */
+  align-items: center; /* Center text vertically */
+  justify-content: center; /* Center text horizontally */
+  border: 1px solid #c7b05a; /* Border color */
+  font-weight: 500; /* Font weight for text */
+  text-align: center; /* Center-align text */
+  text-decoration: none; /* Remove underline */
+  transition: all ease-in-out 0.3s; /* Smooth hover effect */
+  background-color: transparent; /* Transparent background initially */
+  cursor: pointer;
+  z-index: 1100; /* Ensure the button stays above other elements */
+}
+
+/* Hover effect for the buttons */
+.login-button:hover, #logoutButton:hover {
+  background-color: #c7b05a; /* Add background on hover */
+  color: #3a3a39; /* Change text color on hover */
+}
+
+/* Main content below the header */
+#authSection, #chatSection {
+  width: 90%; /* Use relative width for responsiveness */
+  max-width: 1200px; /* Increased max-width for larger screens */
+  margin-top: 150px; /* Space below the fixed header */
+  margin-bottom: 20px; /* Add margin at the bottom */
+  padding: 20px;
+  background-color: #3a3a39;
+  border-radius: 8px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  text-align: center; /* Center the text inside */
+  display: flex; /* Enable Flexbox */
+  flex-direction: column; /* Stack children vertically */
+  align-items: stretch;
+  height: calc(100vh - 170px); /* Adjusted height to accommodate header and margins */
+}
+
+/* Authentication header */
+.authheader {
+  text-align: left;
+  color: #c7b05a;
+  font-weight: lighter;
+}
+
+/* Input styling */
+input[type="email"], input[type="password"], input[type="text"] {
+  width: 100%;
+  padding: 8px 40px 8px 12px; /* Reduced vertical padding, added right padding for send button */
+  margin: 10px 0;
+  border: 1px solid #c7b05a;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background-color: #abababad;
+  font-size: 14px; /* Adjust font size for smaller height */
+}
+
+input::placeholder {
+  color: #c4c2c2; /* Placeholder text color */
+  font-weight: lighter;
+  opacity: 0.7; /* Ensure partial opacity */
+  font-family: 'Noto Sans', sans-serif; /* Apply Noto Sans font */
+}
+
+/* Buttons styling */
+button {
+  padding: 12px;
+  margin-top: 10px;
+  background-color: #c7b05a;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+  box-sizing: border-box;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+  background-color: #c6b888;
+  transform: scale(1.05);
+}
+
+/* Chat controls (e.g., new chat button) */
+#chatControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Align buttons to the start */
+  margin-bottom: 10px;
+}
+
+/* New Chat button styling */
+#newChatButton {
+  padding: 10px 20px;
+  background-color: #3a3a39;
+  color: #c7b05a;
+  border: 1px solid #c7b05a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#newChatButton:hover {
+  background-color: #c7b05a;
+  color: #3a3a39;
+  transform: scale(1.05);
+}
+
+/* Chat input and send button container */
+#chatInputContainer {
+  display: flex; /* Enable flex layout */
+  align-items: center; /* Center items vertically */
+  width: 100%; /* Full width */
+  position: relative;
+}
+
+/* Updated message input styling for contenteditable div */
+#messageInput {
+  flex-grow: 1;
+  padding: 8px 50px 8px 12px;
+  margin: 10px 0;
+  border: 1px solid #c7b05a;
+  border-radius: 30px;
+  background-color: #6d6d6d;
+  color: #ffffff;
+  font-size: 14px;
+  position: relative;
+  min-height: 40px;
+  overflow-y: auto;
+  caret-color: transparent;
+  text-align: left;
+  line-height: 1.2; /* Added line-height */
+  font-family: 'Noto Sans', sans-serif; /* Added font-family */
+}
+
+/* Placeholder styling */
+#messageInput:empty::before {
+  content: attr(data-placeholder);
+  color: #c4c2c2;
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  pointer-events: none;
+  text-align: left;
+  width: calc(100% - 24px);
+}
+
+/* Custom cursor - appears only when the message input is focused */
+#messageInput:focus::after {
+  content: '';
+  position: absolute;
+  background-color: #ffffff;
+  width: 2px;
+  animation: fadeBlink 1s infinite;
+  left: calc(12px + var(--cursor-x, 0));
+  height: var(--cursor-height, 1em); /* Use the cursor height variable */
+}
+
+/* Keyframes for smooth fade animation */
+@keyframes fadeBlink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Hover effects */
+#messageInput:hover {
+  border-color: #d9b35d;
+  background-color: #5c5c5c;
+  box-shadow: 0 0 5px rgba(217, 179, 93, 0.5);
+}
+
+/* Focus effects */
+#messageInput:focus {
+  outline: none;
+  border-color: #d9b35d;
+  background-color: #5c5c5c;
+  box-shadow: 0 0 8px rgba(217, 179, 93, 0.8);
+}
+
+/* Send button */
+#sendButton {
+  width: 40px; /* Fixed width for the button */
+  height: 40px; /* Fixed height for the button */
+  margin-left: 8px; /* Space between input and button */
+  margin-bottom: 10px;
+  background-color: transparent; /* No background color */
+  border: none; /* Remove borders */
+  background-image: url('send-button.svg'); /* Path to your SVG */
+  background-size: contain; /* Ensure the SVG fits inside the button */
+  background-repeat: no-repeat; /* Prevent repetition */
+  background-position: center; /* Center the SVG inside the button */
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
+  display: flex; /* Enable flexbox for centering */
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
+}
+
+/* Add hover and active effects for send button */
+#sendButton:hover {
+  transform: scale(1.1); /* Slightly enlarge on hover */
+  filter: brightness(1.2); /* Brighten the SVG */
+}
+
+#sendButton:active {
+  transform: scale(1.0); /* Return to original size on click */
+  filter: brightness(0.9); /* Darken slightly on click */
+}
+
+/* Adjust the SVG icon size via CSS */
+#sendButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Chat window styling */
+#chatWindow {
+  display: flex; /* Enable flexbox for proper layout */
+  flex-direction: column; /* Stack messages vertically */
+  align-items: stretch; /* Make sure children stretch to the container width */
+  flex-grow: 1; /* Allow the chat window to grow */
+  width: 100%;
+  padding: 10px; /* Padding for spacing */
+  overflow-y: auto; /* Enable scrolling if content overflows */
+  margin-bottom: 10px;
+  background-color: #3a3a39;
+  border-radius: 8px;
+  box-shadow: inset 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Message styling */
+.message {
+  display: inline-block; /* Allows width to adjust based on content */
+  padding: 10px; /* Padding for readability */
+  margin: 5px 0;
+  border-radius: 4px;
+  font-family: 'Noto Sans', sans-serif;
+  max-width: 90%; /* Maximum width of message box */
+  word-wrap: break-word; /* Ensures long words break appropriately */
+}
+
+.message.user {
+  background-color: #c7b05a;
+  color: #3a3a39;
+  align-self: flex-end; /* Align user messages to the right */
+  text-align: left;
+}
+
+/* Style for assistant messages containing markdown */
+.message.assistant .message-content {
+  /* Apply styles to make markdown content readable */
+  font-family: 'Noto Sans', sans-serif;
+  color: #ffffff;
+  text-align: left;
+  word-wrap: break-word; /* Ensures long words break appropriately */
+  white-space: pre-wrap;
+}
+
+/* Code blocks */
+/* Headings */
+.message.assistant h1,
+.message.assistant h2,
+.message.assistant h3,
+.message.assistant h4,
+.message.assistant h5,
+.message.assistant h6 {
+    color: #c7b05a;
     margin-top: 10px;
-    background-color: #4a90e2;
-    border: none;
-    color: white;
-    cursor: pointer;
-    border-radius: 4px;
-  }
-  
-  button:hover {
-    background-color: #357abd;
-  }
-  
-  #chat-window {
-    width: 100%;
-    height: 300px;
-    border: 1px solid #ccc;
-    padding: 10px;
-    overflow-y: auto;
     margin-bottom: 10px;
-    background-color: #fff;
-  }
-  
-  .message {
-    padding: 5px;
-    margin: 5px 0;
+}
+
+/* Lists */
+.message.assistant ul,
+.message.assistant ol {
+    margin-left: 20px;
+    margin-bottom: 10px;
+}
+
+/* Blockquotes */
+.message.assistant blockquote {
+    border-left: 4px solid #c7b05a;
+    padding-left: 10px;
+    color: #c4c2c2;
+    margin: 10px 0;
+}
+
+/* Code blocks */
+.message.assistant pre {
+    background-color: #474747;
+    padding: 10px;
     border-radius: 4px;
+    overflow-x: auto;
+}
+
+.message.assistant code {
+    background-color: #2d2d2d;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+/* Links */
+.message.assistant a {
+    color: #c7b05a;
+    text-decoration: underline;
+}
+
+.message.assistant a:hover {
+    color: #d9b35d;
+}
+
+/* Bold and Italic */
+.message.assistant strong,
+.message.assistant b {
+    color: #c7b05a;
+    font-weight: bold;
+}
+
+.message.assistant em,
+.message.assistant i {
+    font-style: italic;
+}
+
+.message.assistant ul,
+.message.assistant ol {
+    margin-left: 20px;
+    margin-bottom: 10px;
+    /* Ensure list styles are visible */
+    list-style-type: disc; /* or any other desired style */
+}
+.system-message {
+  font-family: 'Noto Sans', sans-serif; /* Apply Noto Sans font */
+  font-size: 18px; /* Adjust font size as needed */
+  color: #c7b05a; /* Text color to match theme */
+  text-align: center; /* Center the text */
+}
+
+.error {
+  color: red;
+}
+
+/* Authentication footer */
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #fff;
+  font-weight: lighter;
+}
+
+.auth-footer a {
+  text-decoration: none;
+  color: #c7b05a;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.message-loading {
+  font-style: italic;
+  color: gray;
+}
+
+/* Tablets */
+@media (max-width: 768px) {
+  #authSection, #chatSection {
+    width: 90%;
+    max-width: 700px;
+    height: calc(100vh - 220px); /* Adjusted for margin-bottom */
   }
-  
-  .user {
-    text-align: right;
-    color: #4a90e2;
+
+  .login-button, #logoutButton {
+    width: 90px;
+    height: 35px;
   }
-  
-  .assistant {
-    text-align: left;
-    color: #333;
+
+  #chatWindow {
+    height: 250px;
   }
-  
-  .error {
-    color: red;
+
+  #sendButton svg {
+    width: 18px;
+    height: 18px;
   }
+}
+
+/* Mobile Devices */
+@media (max-width: 480px) {
+  #authSection, #chatSection {
+    width: 95%;
+    max-width: 100%;
+    padding: 15px;
+    height: calc(100vh - 220px); /* Adjusted for margin-bottom */
+  }
+
+  .login-button, #logoutButton {
+    width: 80px;
+    height: 30px;
+  }
+
+  #chatWindow {
+    height: 200px;
+  }
+
+  #messageInput {
+    padding: 6px 30px 6px 8px; /* Further reduce padding for mobile */
+    font-size: 12px;
+  }
+
+  #sendButton svg {
+    width: 16px;
+    height: 16px;
+  }
+}
