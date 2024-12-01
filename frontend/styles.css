@@ -302,7 +302,7 @@ button:hover {
 
 /* Message styling */
 .message {
-  display: inline-block; /* Allows width to adjust based on content */
+  display: block; /* Change to block to allow full width */
   padding: 10px; /* Padding for readability */
   margin: 5px 0;
   border-radius: 4px;
@@ -325,7 +325,6 @@ button:hover {
   color: #ffffff;
   text-align: left;
   word-wrap: break-word; /* Ensures long words break appropriately */
-  white-space: pre-wrap;
 }
 
 /* Code blocks */
@@ -341,13 +340,53 @@ button:hover {
     margin-bottom: 10px;
 }
 
-/* Lists */
 .message.assistant ul,
 .message.assistant ol {
-    margin-left: 20px;
-    margin-bottom: 10px;
+    margin: 0;
+    padding: 0;
 }
 
+/* Style unordered list items */
+.message.assistant ul li {
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+    display: list-item;
+    list-style-type: none;  /* Hide default bullets */
+}
+
+/* Add custom bullet points for unordered lists */
+.message.assistant ul li::before {
+    content: "• ";
+    color: #c7b05a;
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+/* Style ordered list items */
+.message.assistant ol {
+  counter-reset: item;
+  margin-left: 20px; /* Indent the list */
+}
+
+.message.assistant ol li {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 30px; /* Add left padding to make space for numbers */
+  line-height: 1.5;
+  list-style-type: none; /* Remove default numbering */
+}
+
+.message.assistant ol li::before {
+  content: counter(item) ". ";
+  counter-increment: item;
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #c7b05a;
+  font-weight: bold;
+  width: 25px; /* Fixed width for alignment */
+}
 /* Blockquotes */
 .message.assistant blockquote {
     border-left: 4px solid #c7b05a;

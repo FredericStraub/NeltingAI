@@ -1,34 +1,51 @@
 // firebase.js
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import {
   getAuth,
   signInWithEmailAndPassword,
-  signOut
+  signInWithCustomToken,
+  signOut,
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 let app, auth;
+let firebaseInitializationPromise;
 
 /**
  * Initialize Firebase dynamically by fetching configuration from the backend
  */
-async function initializeFirebase() {
-  try {
-    const response = await fetch("http://127.0.0.1:8000/firebase-config");
-    if (!response.ok) {
-      throw new Error("Failed to fetch Firebase configuration");
-    }
-    const firebaseConfig = await response.json();
+function initializeFirebase() {
+  firebaseInitializationPromise = fetch("http://127.0.0.1:8000/firebase-config")
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch Firebase configuration");
+      }
+      const firebaseConfig = await response.json();
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      console.log("Firebase initialized:", app);
+    })
+    .catch((error) => {
+      console.error("Firebase initialization error:", error);
+    });
 
-    // Initialize Firebase with fetched config
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    console.log('Firebase initialized:', app);
-  } catch (error) {
-    console.error("Firebase initialization error:", error);
-  }
+  return firebaseInitializationPromise;
 }
 
-await initializeFirebase();
+// Start initialization
+initializeFirebase();
+
+/**
+ * Get the Firebase Auth instance after initialization
+ * @returns {Promise<Auth>}
+ */
+async function getAuthInstance() {
+  await firebaseInitializationPromise;
+  if (!auth) {
+    throw new Error("Firebase Auth not initialized");
+  }
+  return auth;
+}
 
 /**
  * Sign up a new user via the backend
@@ -53,8 +70,16 @@ async function signup(email, password, username) {
       throw new Error(errorData.detail || "Registration failed.");
     }
 
-    // After successful registration, sign in the user via Firebase Auth
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    // Get the custom token from the backend
+    const data = await response.json();
+    const customToken = data.customToken;
+
+    // Initialize Firebase Auth if not already initialized
+    const authInstance = await getAuthInstance();
+
+    // Sign in with the custom token
+    const userCredential = await signInWithCustomToken(authInstance, customToken);
+
     return userCredential.user;
   } catch (error) {
     console.error("Signup Error:", error);
@@ -71,8 +96,28 @@ async function signup(email, password, username) {
  */
 async function login(email, password) {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
+    const authInstance = await getAuthInstance();
+    const userCredential = await signInWithEmailAndPassword(authInstance, email, password);
+    const user = userCredential.user;
+
+    // Get the ID token
+    const idToken = await user.getIdToken();
+
+    // Send the ID token to the backend /login endpoint
+    const response = await fetch("http://127.0.0.1:8000/auth/login", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+      credentials: "include", // Include cookies in requests
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to log in.");
+    }
+
+    return user;
   } catch (error) {
     console.error("Login Error:", error);
     throw error;
@@ -83,13 +128,28 @@ async function login(email, password) {
  * Log out the current user
  * @returns {Promise<void>}
  */
-async function logoutUser() { // Renamed to avoid conflict with 'logout' variable
+async function logoutUser() {
   try {
-    await signOut(auth);
+    const authInstance = await getAuthInstance();
+
+    // Sign out from Firebase Auth
+    await signOut(authInstance);
+
+    // Inform the backend to clear the authentication cookie
+    await fetch("http://127.0.0.1:8000/logout", {
+      method: "POST",
+      credentials: "include", // Include cookies in request
+    });
   } catch (error) {
     console.error("Logout Error:", error);
     throw error;
   }
 }
 
-export { auth, signup, login, logoutUser };
+export {
+  getAuthInstance,
+  firebaseInitializationPromise,
+  signup,
+  login,
+  logoutUser,
+};

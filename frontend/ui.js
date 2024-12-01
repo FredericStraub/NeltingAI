@@ -1,6 +1,6 @@
 // ui.js
 
-import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import { Parser, HtmlRenderer } from 'https://esm.sh/commonmark@0.30.0';
 import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify@2.4.0/+esm';
 
 /**
@@ -10,41 +10,50 @@ import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify@2.4.0/+esm';
  * @returns {HTMLElement|null} - The created message element, or null for system messages
  */
 function appendMessage(sender, message) {
-    if (sender === 'System') {
-      displaySystemMessage(message);
-      return null;
-    }
-  
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', sender.toLowerCase());
-  
+  if (sender === 'System') {
+    displaySystemMessage(message);
+    return null;
+  }
+
+  const messageElement = document.createElement('div');
+  messageElement.classList.add('message', sender.toLowerCase());
+
+  let contentElement;
+
+  if (sender === 'Assistant') {
     // Create and append the sender's name
     const senderElement = document.createElement('strong');
     senderElement.textContent = `${sender}:`;
     messageElement.appendChild(senderElement);
-  
-    // Create and append the message content
-    let contentElement;
-    if (sender === 'Assistant') {
-      contentElement = document.createElement('div'); // Block-level for Assistant
-      contentElement.classList.add('message-content');
-      // Add loading indicator
-      const loadingElement = document.createElement('span');
-      loadingElement.classList.add('message-loading');
-      loadingElement.textContent = 'Typing...';
-      contentElement.appendChild(loadingElement);
-    } else {
-      contentElement = document.createElement('span'); // Inline for User
-      contentElement.classList.add('message-content');
-      contentElement.textContent = message; // Directly set text for user messages
-    }
-    messageElement.appendChild(contentElement);
-  
-    const chatWindow = document.getElementById('chatWindow');
-    chatWindow.appendChild(messageElement);
-    chatWindow.scrollTop = chatWindow.scrollHeight; // Auto-scroll to the latest message
-    return messageElement;
+
+    contentElement = document.createElement('div'); // Block-level for Assistant
+    contentElement.classList.add('message-content');
+
+    // Add loading indicator
+    const loadingElement = document.createElement('span');
+    loadingElement.classList.add('message-loading');
+    loadingElement.textContent = 'Typing...';
+    contentElement.appendChild(loadingElement);
+
+    // Initialize assistant response buffer and parser state for this message element
+    messageElement.assistantResponseBuffer = '';
+    messageElement.parser = new Parser();
+    messageElement.renderer = new HtmlRenderer();
+  } else if (sender === 'User') {
+    // For user messages, we skip adding the sender's name
+    contentElement = document.createElement('span'); // Inline for User
+    contentElement.classList.add('message-content');
+    contentElement.textContent = message; // Directly set text for user messages
   }
+
+  messageElement.appendChild(contentElement);
+
+  const chatWindow = document.getElementById('chatWindow');
+  chatWindow.appendChild(messageElement);
+  chatWindow.scrollTop = chatWindow.scrollHeight; // Auto-scroll to the latest message
+  return messageElement;
+}
+
 
 /**
  * Display a system message in the systemMessage container
@@ -63,79 +72,67 @@ function displaySystemMessage(message) {
  * @param {boolean} isFinalChunk - Indicates if this is the final chunk of the message
  */
 function updateMessageContent(messageElement, content, isFinalChunk = false) {
-    console.log("updateMessageContent called with:", repr(content)); // Debug
+  console.log("updateMessageContent called with:", repr(content)); // Debug
 
-    if (!content.trim()) {
-        console.log("Empty content received, skipping update.");
-        return;
+  
+  // Normalize line breaks
+  content = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Append new chunk to the buffer
+  messageElement.assistantResponseBuffer += content;
+
+  // Select the message content element
+  const contentElementDiv = messageElement.querySelector(".message-content");
+  if (contentElementDiv) {
+    // Remove loading indicator if present
+    const loadingElement = contentElementDiv.querySelector(".message-loading");
+    if (loadingElement) {
+      loadingElement.remove();
+      console.log("Removed loading indicator"); // Debug
     }
 
-    // Normalize line breaks
-    content = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    try {
+      // Parse the accumulated buffer incrementally
+      const parsed = messageElement.parser.parse(messageElement.assistantResponseBuffer);
 
-    // Append new chunk to the buffer
-    assistantResponseBuffer += content;
+      // Render the parsed document
+      const dirtyHTML = messageElement.renderer.render(parsed);
 
-    // Format buffer for Markdown
-    const formattedBuffer = formatNewlines(assistantResponseBuffer);
+      // Sanitize the HTML
+      const cleanHTML = DOMPurify.sanitize(dirtyHTML);
 
-    // Select the message content element
-    const contentElementDiv = messageElement.querySelector(".message-content");
-    if (contentElementDiv) {
-        // Remove loading indicator if present
-        const loadingElement = contentElementDiv.querySelector(".message-loading");
-        if (loadingElement) {
-            loadingElement.remove();
-            console.log("Removed loading indicator"); // Debug
+      // Update the element's content with the formatted response
+
+  // Update the element's content with the formatted response
+      contentElementDiv.innerHTML = cleanHTML;
+
+      // Remove <p> tags inside <li> elements
+      const listItemParagraphs = contentElementDiv.querySelectorAll('li > p');
+      listItemParagraphs.forEach(paragraph => {
+        const parentLi = paragraph.parentElement;
+        // Move the content of <p> into <li>
+        while (paragraph.firstChild) {
+          parentLi.insertBefore(paragraph.firstChild, paragraph);
         }
+        // Remove the now-empty <p> tag
+        parentLi.removeChild(paragraph);
+      });
 
-        try {
-            // Parse Markdown into HTML and sanitize
-            const dirtyHTML = marked.parse(formattedBuffer);
-            const cleanHTML = DOMPurify.sanitize(dirtyHTML);
-
-            // Update the element's content with the formatted response
-            contentElementDiv.innerHTML = cleanHTML;
-        } catch (error) {
-            console.error("Error parsing or updating message content:", error);
-        }
-    } else {
-        console.error("Failed to find .message-content element in messageElement:", messageElement);
+    } catch (error) {
+      console.error("Error parsing or updating message content:", error);
     }
+  } else {
+    console.error("Failed to find .message-content element in messageElement:", messageElement);
+  }
 
-    // Scroll to the latest message
-    const chatWindow = document.getElementById("chatWindow");
-    chatWindow.scrollTop = chatWindow.scrollHeight;
+  // Scroll to the latest message
+  const chatWindow = document.getElementById("chatWindow");
+  chatWindow.scrollTop = chatWindow.scrollHeight;
 
-    // Reset the buffer if this is the final chunk
-    if (isFinalChunk) {
-        console.log("Final chunk received. Resetting response buffer.");
-        assistantResponseBuffer = '';
-    }
-}
-
-// Helper function to format newlines
-function formatNewlines(text) {
-    // Replace carriage returns with newlines
-    text = text.replace(/\r/g, '\n');
-
-    // Replace three or more newlines with two newlines (avoid extra empty paragraphs)
-    text = text.replace(/\n{3,}/g, '\n\n');
-
-    // Replace single newlines with two spaces and a newline (Markdown line break)
-    text = text.replace(/([^\n])\n([^\n])/g, '$1  \n$2');
-
-    return text;
-}
-
-let assistantResponseBuffer = ''; // Store accumulated response
-
-/**
- * Reset the assistant response buffer
- */
-function resetAssistantResponseBuffer() {
-    assistantResponseBuffer = '';
-    console.log("Assistant response buffer has been reset.");
+  if (isFinalChunk) {
+    console.log("Final chunk received. Assistant response complete.");
+    // Optionally, perform any final actions here
+  }
 }
 
 /**
@@ -147,4 +144,4 @@ function repr(str) {
   return str.replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
 }
 
-export { appendMessage, displaySystemMessage, updateMessageContent, repr, resetAssistantResponseBuffer };
+export { appendMessage, displaySystemMessage, updateMessageContent, repr };

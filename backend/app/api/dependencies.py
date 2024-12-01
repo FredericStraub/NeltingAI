@@ -1,5 +1,5 @@
 # backend/app/api/dependencies.py
-
+from fastapi import Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends, HTTPException, status
 from firebase_admin import auth
@@ -25,12 +25,27 @@ def verify_firebase_token(token: str) -> dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Error: {str(e)}"
         )
+async def get_current_user(request: Request) -> dict:
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        decoded_token = auth.verify_id_token(token)
+    except auth.ExpiredIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired token"
+        )
+    except auth.InvalidIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    except Exception as e:
+        logger.error(f"Error verifying token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(auth_scheme),
-) -> dict:
-    token = credentials.credentials
-    decoded_token = verify_firebase_token(token)
     uid = decoded_token.get("uid")
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -40,12 +55,8 @@ async def get_current_user(
     user_doc = firestore_client.collection("user").document(uid).get()
     if not user_doc.exists:
         raise HTTPException(status_code=404, detail="User not found")
-    
     user_data = user_doc.to_dict()
-
-    # Merge Firestore data with the decoded token
     full_user_data = {**decoded_token, **user_data}
-
     return full_user_data
 
 async def get_current_admin(current_user: dict = Depends(get_current_user)):

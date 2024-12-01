@@ -2,7 +2,7 @@
 
 import { appendMessage, displaySystemMessage, updateMessageContent, repr } from './ui.js';
 import { createNewChat, sendChatMessageStream } from './chat.js';
-import { auth, logoutUser } from './firebase.js';
+import { getAuthInstance, firebaseInitializationPromise, logoutUser } from './firebase.js';
 
 /**
  * Handle creating a new chat session
@@ -11,7 +11,7 @@ import { auth, logoutUser } from './firebase.js';
 async function handleCreateNewChat() {
   try {
     const newChatId = await createNewChat();
-    appendMessage('System', `New chat session started. Chat ID: ${newChatId}`);
+    appendMessage('System', `New chat session started.`);
     console.log(`New chat created: ${newChatId}`); // Debug
     return newChatId;
   } catch (error) {
@@ -34,6 +34,9 @@ function initializeEventListeners() {
   newChatButton.addEventListener('click', async () => {
     currentChatId = await handleCreateNewChat();
     console.log(`New Chat ID set to: ${currentChatId}`); // Debug
+
+    // Close any existing EventSource connection
+    closeEventSource();
   });
 
   // Handle "Logout" button click
@@ -71,25 +74,36 @@ function initializeEventListeners() {
     const assistantMessageElement = appendMessage("Assistant", "");
     console.log('Assistant message element created:', assistantMessageElement); // Debug
 
+    // Close any existing EventSource connection before starting a new one
+    closeEventSource();
+
     // Send message and handle streaming response
     try {
-      await sendChatMessageStream(
-          currentChatId,
-          message,
-          (data, isFinal) => {
-              updateMessageContent(assistantMessageElement, data, isFinal);
-              console.log(`Assistant received data chunk: ${repr(data)}`); // Debug
-          },
-          (error) => {
-              updateMessageContent(assistantMessageElement, `Error: ${error.message || "An unknown error occurred."}`, true);
-              console.error("Assistant Error:", error); // Debug
-          }
+      sendChatMessageStream(
+        currentChatId,
+        message,
+        (data, isFinal) => {
+          updateMessageContent(assistantMessageElement, data, isFinal);
+          console.log(`Assistant received data chunk: ${repr(data)}`); // Debug
+        },
+        (error) => {
+          updateMessageContent(
+            assistantMessageElement,
+            `Error: ${error.message || "An unknown error occurred."}`,
+            true
+          );
+          console.error("Assistant Error:", error); // Debug
+        }
       );
-  } catch (error) {
-      updateMessageContent(assistantMessageElement, `Error: ${error.message || "An unknown error occurred."}`, true);
+    } catch (error) {
+      updateMessageContent(
+        assistantMessageElement,
+        `Error: ${error.message || "An unknown error occurred."}`,
+        true
+      );
       console.error("Send Message Error:", error); // Debug
-  }
-});
+    }
+  });
 
   // Allow sending message with Enter key and prevent line breaks
   messageInput.addEventListener('keypress', function (e) {
@@ -124,7 +138,11 @@ function updateCursorPosition() {
  * Initialize authentication state listener
  */
 async function initializeAuthListener() {
-  auth.onAuthStateChanged(async (user) => {
+  // Wait for Firebase initialization to complete
+  await firebaseInitializationPromise;
+  const authInstance = await getAuthInstance();
+
+  authInstance.onAuthStateChanged(async (user) => {
     if (user) {
       console.log('User is authenticated:', user); // Debug
       if (!currentChatId) {
@@ -137,6 +155,17 @@ async function initializeAuthListener() {
       window.location.href = 'login.html';
     }
   });
+}
+
+/**
+ * Close the EventSource connection if it exists
+ */
+function closeEventSource() {
+  if (window.currentEventSource) {
+    window.currentEventSource.close();
+    window.currentEventSource = null;
+    console.log('EventSource connection closed.'); // Debug
+  }
 }
 
 // Global variable to track current chat ID

@@ -78,6 +78,11 @@ def build_chain():
         raise e
 
 class RAGAssistant:
+    assistants = {}  # Class-level dictionary to store assistant instances
+
+    @classmethod
+    def get_assistant(cls, chat_id):
+        return cls.assistants.get(chat_id)
     def __init__(self, chat_id: str, firestore_client, user_id: str, user_name: str, history_size: int = 4):
         self.chat_id = chat_id
         self.firestore = firestore_client
@@ -91,7 +96,7 @@ class RAGAssistant:
         self.chat_ref = self.firestore.collection('chats').document(chat_id)
         
         self.initialize_chat()
-
+        RAGAssistant.assistants[chat_id] = self  # Store instance in class-level dict
     def initialize_chat(self):
         try:
             chat_data = self.chat_ref.get().to_dict()
@@ -107,9 +112,6 @@ class RAGAssistant:
         except Exception as e:
             logger.error(f"Failed to initialize chat {self.chat_id}: {e}")
 
-    async def run(self, message: str):
-        asyncio.create_task(self._handle_conversation_task(message))
-        return self.sse_stream
 
     async def _handle_conversation_task(self, message: str):
         try:
@@ -172,6 +174,7 @@ class RAGAssistant:
             await self.sse_stream.send(f"Error: {str(e)}")
         finally:
             await self.sse_stream.close()
+            RAGAssistant.assistants.pop(self.chat_id, None)
             logger.info(f"Closed SSE stream for chat_id {self.chat_id}")
 
 
@@ -197,7 +200,12 @@ class RAGAssistant:
             logger.error(f"Failed to fetch and format history for chat {self.chat_id}: {e}")
             return ""    
         
+    async def handle_message(self, message: str):
+        self.message = message
+        self.process_task = asyncio.create_task(self._handle_conversation_task(message))
 
+    async def get_stream(self):
+        return self.sse_stream
 
     async def _async_firestore_set(self, data: dict):
         loop = asyncio.get_event_loop()

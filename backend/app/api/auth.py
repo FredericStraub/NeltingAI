@@ -1,5 +1,6 @@
 # backend/app/api/auth.py
-
+from fastapi.responses import JSONResponse
+from fastapi import Request
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
@@ -28,20 +29,6 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-# Initialize OAuth2PasswordBearer to expect token in Authorization header
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://127.0.0.1:8000/auth/login")
-
-async def verify_firebase_token(token: str = Depends(oauth2_scheme)):
-    try:
-        uid = verify_firebase_id_token(token)
-        return uid
-    except Exception as e:
-        logger.error(f"Token verification failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
 
 @router.post("/register", response_model=UserOut, tags=["Authentication"])
 def register(user_in: UserIn):
@@ -77,18 +64,29 @@ def register(user_in: UserIn):
         logger.exception(f"Registration failed: {e}")  # Use logger.exception for stack trace
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/login", response_model=Token, tags=["Authentication"])
-def login(credentials: UserIn):
+@router.post("/login", tags=["Authentication"])
+async def login(request: Request):
+    """
+    Endpoint to set the authentication token in an HTTP-only cookie.
+    The client should provide the token in the request body or headers.
+    """
     try:
-        # Firebase Admin SDK does not handle password verification.
-        # Typically, password verification is handled on the client-side using Firebase Client SDK.
-        # After client-side verification, the client obtains a JWT (ID token) and sends it to the backend.
-        # Here, we'll simulate token retrieval for demonstration purposes.
+        token = request.headers.get("Authorization")
+        if not token:
+            raise HTTPException(status_code=400, detail="Authorization token missing")
 
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Login endpoint not implemented. Use Firebase Client SDK for authentication.",
+        token = token.replace("Bearer ", "")
+        # Optionally, verify the token here if necessary
+
+        response = JSONResponse(content={"message": "Login successful"})
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            secure=True,  # Set to True if using HTTPS
+            samesite="Strict",  # Adjust based on your requirements
         )
+        return response
     except Exception as e:
         logger.exception(f"Login failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))

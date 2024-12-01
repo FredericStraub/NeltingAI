@@ -1,23 +1,18 @@
 // chat.js
 
-import { auth } from './firebase.js';
-import { resetAssistantResponseBuffer } from './ui.js'; // Import the reset function
+import { getAuthInstance, firebaseInitializationPromise } from './firebase.js';
 
 /**
  * Clear the chat window
  */
 function clearChat() {
-    const chatWindow = document.getElementById('chatWindow');
-    if (chatWindow) {
-        chatWindow.innerHTML = ""; // Clear all child elements
-        console.log("Chat window cleared.");
-    } else {
-        console.error("Chat window element not found.");
-    }
-
-    // Reset the response buffer in ui.js
-    resetAssistantResponseBuffer();
-    console.log("Assistant response buffer reset.");
+  const chatWindow = document.getElementById('chatWindow');
+  if (chatWindow) {
+    chatWindow.innerHTML = ""; // Clear all child elements
+    console.log("Chat window cleared.");
+  } else {
+    console.error("Chat window element not found.");
+  }
 }
 
 /**
@@ -25,21 +20,25 @@ function clearChat() {
  * @returns {Promise<string>} - Returns the new chat ID
  */
 async function createNewChat() {
-  const user = auth.currentUser;
+  // Ensure Firebase is initialized
+  await firebaseInitializationPromise;
+  const authInstance = await getAuthInstance();
+  const user = authInstance.currentUser;
+
   if (!user) {
     alert("You must be logged in to create a new chat.");
     return;
   }
 
   try {
-    const token = await user.getIdToken();
     const endpoint = "http://127.0.0.1:8000/chat/new";
 
     const response = await fetch(endpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
-      }
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Include cookies in the request
     });
 
     if (!response.ok) {
@@ -60,82 +59,67 @@ async function createNewChat() {
   }
 }
 
-/**
- * Send a chat message and handle streaming response
- * @param {string} chatId
- * @param {string} question
- * @param {function} onMessage - Callback to handle incoming message chunks
- * @param {function} onError - Callback to handle errors
- * @returns {Promise<void>}
- */
-async function sendChatMessageStream(chatId, question, onMessage, onError) {
-  const user = auth.currentUser;
-  if (!user) {
-      console.error("User is not authenticated.");
-      return;
-  }
-
-  try {
-      const token = await user.getIdToken();
-      const endpoint = `http://127.0.0.1:8000/chat/${chatId}`;
-
-      const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              Accept: "text/event-stream",
-          },
-          body: JSON.stringify({ question }),
-      });
-
-      if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Server error response:", errorText);
-          onError(new Error(errorText));
-          return;
+function sendChatMessageStream(chatId, question, onMessage, onError) {
+  // First, send the user's message via POST
+  sendUserMessage(chatId, question)
+    .then(() => {
+      // Start listening to the SSE stream
+      startSSE(chatId, onMessage, onError);
+    })
+    .catch((error) => {
+      console.error("Error sending message:", error);
+      if (onError) {
+        onError(error);
       }
+    });
+}
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+async function sendUserMessage(chatId, question) {
+  const endpoint = `http://127.0.0.1:8000/chat/${chatId}/message`;
 
-        buffer += decoder.decode(value, { stream: true });
-        console.log("Buffer:", repr(buffer))
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ question }),
+    credentials: 'include', // Include cookies in the request
+  });
 
-        const events = buffer.split("\r\n\r\n");
-        console.log("Buffer after split:", repr(buffer))
-
-        buffer = events.pop(); // Retain incomplete message
-
-        for (const event of events) {
-            const lines = event.trim().split("\r\n");
-            for (const line of lines) {
-                if (line.startsWith("data:")) {
-                    const data = line.substring(6);
-                    onMessage(data, false);
-                    
-                }
-            }
-        }
-    }
-    onMessage('', true);
-  } catch (error) {
-      console.error("Stream processing error:", error);
-      onError(error);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText);
   }
 }
 
-/**
- * Helper function to visualize escape characters in logs
- * @param {string} str
- * @returns {string}
- */
-function repr(str) {
-  return str.replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
+// chat.js
+
+function startSSE(chatId, onMessage, onError) {
+  const endpoint = `http://127.0.0.1:8000/chat/${chatId}/stream`;
+  const eventSource = new EventSource(endpoint, { withCredentials: true });
+
+  eventSource.onopen = () => {
+    console.log("SSE connection opened.");
+  };
+
+  eventSource.onmessage = (event) => {
+    console.log("Received SSE data:", event.data); // Debug
+    onMessage(event.data, false);
+  };
+
+  eventSource.onerror = (err) => {
+    console.warn("SSE connection closed by server or network error:", err);
+
+    // Indicate completion to the message handler
+    onMessage("", true); // This will set isFinalChunk to true
+
+    // Close the EventSource connection
+    eventSource.close();
+  };
+
+  window.currentEventSource = eventSource;
 }
+
+
 
 export { createNewChat, sendChatMessageStream };

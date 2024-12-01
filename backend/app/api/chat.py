@@ -1,6 +1,6 @@
 # backend/app/api/chat.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 from app.models import ChatRequest, ChatResponse, User
 from app.api.dependencies import get_current_user  # Ensure correct import
@@ -14,32 +14,37 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.post("/{chat_id}", tags=["Chat"])
-async def chat(
-    chat_id: str, 
-    chat_in: ChatRequest, 
-    current_user: User = Depends(get_current_user),
+@router.post("/{chat_id}/message", tags=["Chat"])
+async def post_message(
+    chat_id: str,
+    chat_in: ChatRequest,
+    current_user: dict = Depends(get_current_user),
 ):
-    try:
-        firestore_client = get_firestore_client()
-        # Verify that the chat_id exists and belongs to the user
-        chat_ref = firestore_client.collection('chats').document(chat_id)
-        chat_doc = await asyncio.to_thread(chat_ref.get)  # Make Firestore call asynchronous
-        if not chat_doc.exists:
-            logger.warning(f"Chat ID {chat_id} does not exist.")
-            raise HTTPException(status_code=404, detail="Chat not found.")
-        if chat_doc.to_dict().get('user_id') != current_user["uid"]:
-            logger.warning(f"User {current_user.uid} attempted to access chat {chat_id} not owned by them.")
-            raise HTTPException(status_code=403, detail="Not authorized to access this chat.")
-        
-        assistant = RAGAssistant(
-            chat_id=chat_id, 
-            firestore_client=firestore_client, 
-            user_id=current_user["uid"],
-            user_name=current_user["username"]
-        )
-        sse_stream = await assistant.run(message=chat_in.question)  # Await the asynchronous run method
-        return EventSourceResponse(sse_stream)
-    except Exception as e:
-        logger.exception(f"Error in chat endpoint: {e}")  # Logs stack trace
-        raise HTTPException(status_code=500, detail=str(e))
+    firestore_client = get_firestore_client()
+    chat_ref = firestore_client.collection('chats').document(chat_id)
+    chat_doc = await asyncio.to_thread(chat_ref.get)
+    if not chat_doc.exists:
+        raise HTTPException(status_code=404, detail="Chat not found.")
+    if chat_doc.to_dict().get('user_id') != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to access this chat.")
+
+    assistant = RAGAssistant(
+        chat_id=chat_id,
+        firestore_client=firestore_client,
+        user_id=current_user["uid"],
+        user_name=current_user["username"]
+    )
+    await assistant.handle_message(chat_in.question)
+    return {"message": "Message received. You can now connect to the stream."}
+
+@router.get("/{chat_id}/stream", tags=["Chat"])
+async def stream_response(
+    chat_id: str,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    assistant = RAGAssistant.get_assistant(chat_id)
+    if not assistant:
+        raise HTTPException(status_code=400, detail="No message processing found for this chat.")
+    sse_stream = await assistant.get_stream()
+    return EventSourceResponse(sse_stream)

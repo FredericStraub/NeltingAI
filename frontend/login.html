@@ -2,19 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Login - NeltingAI</title>
+  <title>Login - Netling AI</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header class="headerheader" id="header">
         <div class="header-wrapper">
-          <h1 id="mainheader">Nelting AI</h1>
-          <a href="login.html" class="login-button">
-            Login
-            <span class="login-icon">
-              <img src="https://www.neltings-welt.de/files/daten/icon/icon-login.svg" alt="Login Icon" class="icon-image">
-            </span>
-          </a>
+          <h1 id="mainheader">Netling AI</h1>
+          <!-- Removed redundant login link -->
         </div>
       </header>
 
@@ -29,22 +24,29 @@
     </p>
   </div>
 
+  <!-- Include your JavaScript files -->
   <script type="module">
-    import { login, auth } from './firebase.js';
+    import { firebaseInitializationPromise, login } from './firebase.js';
 
     const loginButton = document.getElementById('loginButton');
-    const authSection = document.getElementById('authSection');
 
     // Handle user login
     loginButton.addEventListener('click', async () => {
-      const email = document.getElementById('loginEmail').value;
+      const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
 
       try {
-        const user = await login(email, password);
-        window.location.href = "chat.html"; // Redirect to chat after login
+        // Wait for Firebase initialization to complete
+        await firebaseInitializationPromise;
+
+        // Authenticate and handle backend login in the login function
+        await login(email, password);
+
+        // Redirect to chat after successful login
+        window.location.href = "chat.html";
       } catch (error) {
         alert(`Login failed: ${error.message}`);
+        console.error('Login Error:', error);
       }
     });
   </script>
