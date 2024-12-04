@@ -3,25 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <title>Login - Netling AI</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="login.css">
+  <!-- Optional: Include Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pDgwjRKUwG4fyROUy20fhZ88/1kYrOs3KqLUHefJHEa2awueV3/l70dpN0v4rKyVHCz7f5HgKIR7GY9C1q3GZw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
-    <header class="headerheader" id="header">
-        <div class="header-wrapper">
-          <h1 id="mainheader">Netling AI</h1>
-          <!-- Removed redundant login link -->
-        </div>
-      </header>
+  <header class="headerheader" id="header">
+    <div class="header-wrapper">
+      <!-- SVG Logo -->
+      <img src="neltingswelt-logo-01.svg" alt="Nelting's Welt Logo" class="header-logo">
+      
+      <!-- Main Header Title -->
+      <h1 id="mainheader">Nelting AI Chat</h1>
+      
+      <!-- Logout Button -->
+      <button id="logoutButton" aria-label="Logout">Logout</button>
+    </div>
+  </header>
 
-  <div id="authSection">
-    <h2 class="authheader">Login</h2>
-    <input type="email" id="loginEmail" placeholder="Email">
-    <input type="password" id="loginPassword" placeholder="Password">
-    <button id="loginButton">Login</button>
+    <!-- Authentication Section -->
+    <div id="authSection">
+      <h2 class="authheader">Login</h2>
+      <input type="email" id="loginEmail" placeholder="Email" required>
+      <input type="password" id="loginPassword" placeholder="Password" required>
+      <button id="loginButton">Login</button>
 
-    <p class="auth-footer">
-      Noch kein Konto? <a href="register.html">Jetzt <strong>registrieren</strong></a>.
-    </p>
+      <p class="auth-footer">
+        Noch kein Konto? <a href="register.html">Jetzt <strong>registrieren</strong></a>.
+      </p>
+    </div>
+
   </div>
 
   <!-- Include your JavaScript files -->

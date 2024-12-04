@@ -1,0 +1,238 @@
+/* login.css */
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap');
+
+/* Reset and Base Styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%; /* Ensure body takes full height */
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans', sans-serif; /* Match imported font */
+  background-color: #2f2f2f;
+  color: #333;
+  padding-top: 150px; /* Offset for the fixed header */
+  min-height: 100vh; /* Cover full viewport height */
+  box-sizing: border-box; /* Include padding in width calculations */
+}
+
+/* Full-width Header */
+.headerheader {
+  position: fixed; /* Fixed at the top */
+  top: 0;
+  left: 0;
+  width: 100%; /* Full viewport width */
+  height: 150px; /* Fixed height */
+  background-color: #3a3a39;
+  background-image: url(header.jpg);
+  background-repeat: no-repeat;
+  background-position: right center; /* Align image to the right and center vertically */
+  background-size: contain; /* Maintain image aspect ratio */
+  display: flex; /* Flex layout */
+  justify-content: center; /* Center content horizontally */
+  align-items: center; /* Center content vertically */
+  padding: 0 20px; /* Horizontal padding */
+  box-sizing: border-box; /* Include padding in width calculations */
+  z-index: 1000; /* Stay on top */
+}
+
+/* Header Wrapper */
+.header-wrapper {
+  display: flex; /* Flex layout */
+  justify-content: center; /* Center title */
+  align-items: center; /* Center title vertically */
+  position: relative; /* For positioning buttons */
+  height: 100%; /* Full header height */
+  width: 100%; /* Full header width */
+}
+
+/* SVG Logo Styling */
+.header-logo {
+    width: 250px; /* Adjust size as needed */
+    height: auto;
+    position: absolute; /* Position absolutely within the header */
+    left: 20px; /* Align to the left with some spacing */
+  }
+/* Main Header Title */
+#mainheader {
+  color: #c7b05a; /* Text color */
+  font-size: 26px; /* Font size */
+  margin: 0; /* Remove default margins */
+  font-weight: lighter; /* Font weight */
+  text-align: center; /* Center text */
+}
+
+.authheader {
+    color: #c7b05a;
+}
+
+#authSection {
+    margin-left: 25%;
+    margin-right: 25%;
+}
+
+/* Login and Logout Button Styling */
+.login-button, #logoutButton {
+  width: 100px; /* Fixed width */
+  height: 40px; /* Fixed height */
+  position: absolute; /* Absolute positioning within header */
+  top: 50%; /* Center vertically */
+  right: 20px; /* Align to the right */
+  transform: translateY(-50%); /* Perfect vertical centering */
+  color: #fff; /* Text color */
+  padding: 0; /* Remove padding */
+  display: flex; /* Flex layout */
+  align-items: center; /* Center text vertically */
+  justify-content: center; /* Center text horizontally */
+  border: 1px solid #c7b05a; /* Border color */
+  font-weight: 500; /* Font weight */
+  text-align: center; /* Center-align text */
+  text-decoration: none; /* Remove underline */
+  transition: all ease-in-out 0.3s; /* Smooth hover effect */
+  background-color: transparent; /* Transparent background initially */
+  cursor: pointer;
+  z-index: 1100; /* Stay above other elements */
+}
+
+/* Hover Effects for Buttons */
+.login-button:hover, #logoutButton:hover {
+  background-color: #c7b05a; /* Add background on hover */
+  color: #3a3a39; /* Change text color on hover */
+}
+
+/* Login Section Container */
+
+
+/* Authentication Footer */
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #fff;
+  font-weight: lighter;
+}
+
+.auth-footer a {
+  text-decoration: none;
+  color: #c7b05a;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+
+
+/* Input Fields Styling */
+input[type="email"], input[type="password"], input[type="text"] {
+  width: 100%;
+  padding: 8px 40px 8px 12px; /* Adjusted padding */
+  margin: 10px 0;
+  border: 1px solid #c7b05a;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background-color: #abababad;
+  font-size: 14px; /* Font size */
+}
+
+input::placeholder {
+  color: #c4c2c2; /* Placeholder color */
+  font-weight: lighter;
+  opacity: 0.7; /* Partial opacity */
+  font-family: 'Noto Sans', sans-serif; /* Match font */
+}
+
+/* General Button Styling */
+button {
+    padding: 12px;
+    margin-top: 10px;
+    background-color: #c7b05a;
+    border: none;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    width: 100px;
+    
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+button:hover {
+  background-color: #c6b888;
+  transform: scale(1.05);
+}
+
+/* System Message Styling */
+.system-message {
+  font-family: 'Noto Sans', sans-serif; /* Match font */
+  font-size: 18px; /* Font size */
+  color: #c7b05a; /* Text color */
+  text-align: center; /* Center text */
+}
+
+.error {
+  color: red;
+}
+
+/* Loading Indicator Styling */
+.message-loading {
+  font-style: italic;
+  color: gray;
+}
+
+/* Responsive Design */
+
+/* Tablets */
+@media (max-width: 768px) {
+  /* Adjust button sizes */
+  .login-button, #logoutButton {
+    width: 90px;
+    height: 35px;
+  }
+
+  /* Adjust SVG icons in send button if applicable */
+  #sendButton svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Adjust #chatSection padding */
+  #chatSection {
+    padding: 15px;
+  }
+}
+
+/* Mobile Devices */
+@media (max-width: 480px) {
+  /* Adjust button sizes */
+  .login-button, #logoutButton {
+    width: 80px;
+    height: 30px;
+  }
+
+  /* Adjust input padding and font size */
+  #messageInput {
+    padding: 6px 30px 6px 8px; /* Reduced padding for mobile */
+    font-size: 12px;
+  }
+
+  /* Adjust SVG icons in send button if applicable */
+  #sendButton svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Adjust #chatSection padding */
+  #chatSection {
+    padding: 10px;
+  }
+}

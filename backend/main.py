@@ -13,6 +13,7 @@ import logging
 import sys
 from app.db import close_weaviate_client, get_weaviate_client
 from starlette.middleware.base import BaseHTTPMiddleware
+from app.api.documents import router as documents_router
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +31,7 @@ class DebugMiddleware(BaseHTTPMiddleware):
             print(f"Authorization Header: {request.headers['Authorization']}")
         response = await call_next(request)
         return response
+
 # Initialize FastAPI application
 app = FastAPI(
     title="NeltingAI",
@@ -52,8 +54,10 @@ app.include_router(chat_create_router, prefix="/chat", tags=["Chat"])
 app.include_router(chat_router, prefix="/chat", tags=["Chat"])
 app.include_router(upload_router, prefix="/upload", tags=["Upload"])
 app.include_router(admin_router, prefix="/admin", tags=["Admin"])
-app.include_router(firebase_config_router, tags=["Configuration"])  # Include Firebase Config Router
+app.include_router(firebase_config_router, tags=["Configuration"])
+app.include_router(documents_router, prefix="/api", tags=["Documents"])  # Include Documents Router
 app.add_middleware(DebugMiddleware)
+
 # Serve frontend static files
 app.mount("/", StaticFiles(directory="/Volumes/External/Netling AI/frontend", html=True), name="frontend")
 
@@ -67,6 +71,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 @app.get("/secure-endpoint")
 def secure_endpoint(token: str = Depends(oauth2_scheme)):
     return {"message": "This endpoint is secured!", "token": token}
+
 # Exception handler for validation errors
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

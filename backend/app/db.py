@@ -51,6 +51,12 @@ def ensure_weaviate_schema():
                     vectorize_property_name=False,  # Do not include property name in vectorization
                     tokenization=weaviate.classes.init.Configure.Tokenization.LOWERCASE,  # Use lowercase tokenization
                 ),
+                weaviate.classes.init.Configure.Property(
+                    name="upload_id",
+                    data_type=weaviate.classes.init.Configure.DataType.TEXT,
+                    vectorize_property_name=False,  # Do not include property name in vectorization
+                    tokenization=weaviate.classes.init.Configure.Tokenization.LOWERCASE,  # Use lowercase tokenization
+                ),
             ],
         )
         logger.info(f"Weaviate schema '{class_name}' created.")

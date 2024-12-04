@@ -136,7 +136,7 @@ async function logoutUser() {
     await signOut(authInstance);
 
     // Inform the backend to clear the authentication cookie
-    await fetch("http://127.0.0.1:8000/logout", {
+    await fetch("http://127.0.0.1:8000/auth/logout", {
       method: "POST",
       credentials: "include", // Include cookies in request
     });

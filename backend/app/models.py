@@ -1,6 +1,7 @@
 # backend/app/models.py
-
+from datetime import datetime
 from pydantic import BaseModel
+from typing import Optional
 
 class User(BaseModel):
     uid: str
@@ -31,3 +32,17 @@ class ChatResponse(BaseModel):
 class AdminAssignRole(BaseModel):
     uid: str
     role: str  # Expected to be "admin" or other roles
+
+class DocumentOut(BaseModel):
+    id: str
+    description: Optional[str] = None
+    file_name: str
+    file_type: str
+    file_url: str
+    size: int
+    upload_id: str
+    uploaded_at: datetime
+    user_id: str
+    
+    class Config:
+        orm_mode = True

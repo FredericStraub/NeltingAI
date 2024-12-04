@@ -1,0 +1,371 @@
+/* Reset and Base Styles */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap');
+
+:root {
+  --shine-duration: 5s;
+  --shine-color: rgba(255, 255, 255, 0.5);
+  --base-text-color: rgba(255, 255, 255, 0.3);
+  --background-color: #333;
+  --primary-color: #c7b05a;
+  --secondary-color: #d9b35d;
+  --header-height: 150px;
+  --sidebar-width: 200px;
+  --transition-duration: 0.3s;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%; /* Ensure body takes full height */
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans', sans-serif; /* Match imported font */
+  background-color: #2c2c2c;
+  color: #c7b05a;
+  min-height: 100vh; /* Ensure it covers the full viewport height */
+  box-sizing: border-box; /* Ensure padding doesn't affect dimensions */
+}
+
+/* Header Styles */
+.headerheader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--header-height);
+  background-color: #3a3a39;
+  background-image: url(header.jpg);
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: contain;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 20px;
+  box-sizing: border-box;
+  z-index: 1000;
+}
+
+.header-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+#mainheader {
+  color: var(--primary-color);
+  font-size: 26px;
+  margin: 0;
+  font-weight: lighter;
+  text-align: center;
+}
+
+.header-logo {
+  width: 250px; /* Adjust size as needed */
+  height: auto;
+  position: absolute; /* Position absolutely within the header */
+  left: 20px; /* Align to the left with some spacing */
+}
+
+.login-button, #logoutButton {
+  width: 100px;
+  height: 40px;
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  color: #fff;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--primary-color);
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  transition: all var(--transition-duration) ease-in-out;
+  background-color: transparent;
+  cursor: pointer;
+  z-index: 1100;
+}
+
+.login-button:hover, #logoutButton:hover {
+  background-color: var(--primary-color);
+  color: #3a3a39;
+}
+
+/* Container and Sidebar Styles */
+.container {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - var(--header-height));
+  margin-top: var(--header-height);
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: #2c2c2c;
+  color: #ffffff;
+  padding: 20px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  transition: width var(--transition-duration) ease;
+  z-index: 999;
+}
+
+.sidebar nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar nav ul li {
+  margin-bottom: 20px;
+}
+
+.sidebar nav ul li a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-duration) ease;
+}
+
+.sidebar nav ul li a:hover {
+  color: var(--secondary-color);
+}
+
+.sidebar nav ul li a i {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+/* Main Content Styles */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin-left: var(--sidebar-width);
+  padding: 20px;
+  width: calc(100% - var(--sidebar-width));
+  box-sizing: border-box;
+  background-color: #2f2f2f;
+  overflow: hidden; /* Prevent main content from scrolling */
+}
+
+.Uploaded-Docs-Header {
+    color: #c7b05a;
+}
+/* Documents Page Specific Styles */
+.documents-container {
+    display: flex;
+    flex-direction: column;
+    margin-top: 20px;
+  }
+  
+  .document-section {
+    background-color: #3a3a39;
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 15px;
+    color: #ffffff;
+    margin-bottom: 15px;
+    transition: transform var(--transition-duration) ease, box-shadow var(--transition-duration) ease;
+  }
+  
+  .document-section:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(199, 176, 90, 0.2);
+  }
+  
+  .document-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+  }
+  
+  .document-description {
+    font-size: 14px;
+    color: #c4c2c2;
+    margin-bottom: 10px;
+  }
+  
+  .document-type,
+  .document-size,
+  .document-uploaded-at {
+    font-size: 14px;
+    color: #c7b05a;
+    margin-bottom: 5px;
+  }
+  
+  .document-link {
+    font-size: 14px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .document-link:hover {
+    text-decoration: underline;
+  }
+  
+  .header-with-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .uploaded-docs-header {
+    color: var(--primary-color);
+    font-size: 24px;
+    margin: 0;
+    font-weight: lighter;
+  }
+  
+  .upload-button {
+    background-color: var(--primary-color);
+    color: #3a3a39;
+    border: none;
+    padding: 10px 15px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color var(--transition-duration) ease;
+  }
+  
+  .upload-button i {
+    margin-right: 5px;
+  }
+  
+  .upload-button:hover {
+    background-color: var(--secondary-color);
+  }
+  
+  /* Adjust main-content if necessary */
+  .main-content {
+    padding: 20px;
+  }
+/* Add this to your documents.css or create a new sources.css */
+
+/* Sources Page Specific Styles */
+.source-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .source-item {
+    background-color: #3a3a39;
+    border: 1px solid var(--primary-color);
+    border-radius: 5px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    color: #ffffff;
+    transition: background-color var(--transition-duration) ease, color var(--transition-duration) ease;
+  }
+  
+  .source-item:hover {
+    background-color: var(--primary-color);
+    color: #3a3a39;
+  }
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  /* Sidebar adjustments for tablets */
+  .sidebar {
+    width: 160px; /* Reduce sidebar width */
+  }
+
+  .main-content {
+    margin-left: 160px; /* Adjust main content margin */
+    width: calc(100% - 160px); /* Adjust main content width */
+  }
+
+  .sidebar nav ul li a {
+    font-size: 14px; /* Smaller font size */
+  }
+
+  .sidebar nav ul li a i {
+    font-size: 16px; /* Smaller icon size */
+  }
+
+  /* Adjust document grid for tablets */
+  .documents-container {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  .document-title {
+    font-size: 16px;
+  }
+
+  .document-source {
+    font-size: 12px;
+  }
+
+  .document-content {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Sidebar adjustments for mobile devices */
+  .sidebar {
+    width: 100%; /* Full width on mobile */
+    height: auto; /* Auto height */
+    position: relative; /* Position relative */
+    top: 0; /* Reset top position */
+    margin-bottom: 20px; /* Space below sidebar */
+  }
+
+  .main-content {
+    margin-left: 0; /* Remove left margin */
+    width: 100%; /* Full width */
+  }
+
+  .sidebar nav ul li {
+    margin-bottom: 15px; /* Reduce space between items */
+  }
+
+  .sidebar nav ul li a {
+    font-size: 14px; /* Smaller font size */
+  }
+
+  .sidebar nav ul li a i {
+    font-size: 16px; /* Smaller icon size */
+  }
+
+  /* Adjust document grid for mobile */
+  .documents-container {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+  }
+
+  .document-title {
+    font-size: 16px;
+  }
+
+  .document-source {
+    font-size: 12px;
+  }
+
+  .document-content {
+    font-size: 12px;
+  }
+}
+
+
+

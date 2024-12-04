@@ -82,11 +82,21 @@ async def login(request: Request):
         response.set_cookie(
             key="access_token",
             value=token,
-            httponly=True,
-            secure=True,  # Set to True if using HTTPS
-            samesite="Strict",  # Adjust based on your requirements
+            httponly=False,
+            secure=False,  # Set to True if using HTTPS
+            samesite="Strict",
+            path="/"  # Adjust based on your requirements
         )
         return response
     except Exception as e:
         logger.exception(f"Login failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/logout", tags=["Authentication"])
+def logout():
+    """
+    Logs out the user by clearing the access_token cookie.
+    """
+    response = JSONResponse(content={"message": "Logout successful"})
+    response.delete_cookie(key="access_token", path="/")
+    return response

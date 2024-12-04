@@ -9,23 +9,24 @@ from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-# Path to your service account key
-SERVICE_ACCOUNT_KEY_PATH = settings.SERVICE_ACCOUNT_KEY_PATH
+# Initialize Firebase Admin SDK
+def initialize_firebase():
+    if not firebase_admin._apps:
+        try:
+            cred = credentials.Certificate(settings.SERVICE_ACCOUNT_KEY_PATH)
+            firebase_admin.initialize_app(
+                cred,
+                {
+                    'storageBucket': settings.FIREBASE_STORAGE_BUCKET,
+                }
+            )
+            logger.info("Firebase Admin initialized successfully.")
+        except Exception as e:
+            logger.exception(f"Failed to initialize Firebase Admin: {e}")
+            raise e
 
-# Initialize Firebase Admin
-if not firebase_admin._apps:
-    try:
-        cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
-        firebase_admin.initialize_app(
-            cred,
-            {
-                'storageBucket': settings.FIREBASE_STORAGE_BUCKET,
-            }
-        )
-        logger.info("Firebase initialized successfully.")
-    except Exception as e:
-        logger.error(f"Failed to initialize Firebase: {e}")
-        raise e
+# Call the initialization function at import time
+initialize_firebase()
 
 # Firestore client
 firestore_client = firestore.client()

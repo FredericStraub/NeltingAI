@@ -1,166 +1,170 @@
-/* Reset margin and padding for consistent layout */
+/* Reset and Base Styles */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap');
+
+:root {
+  --shine-duration: 5s;
+  --shine-color: rgba(255, 255, 255, 0.5);
+  --base-text-color: rgba(255, 255, 255, 0.3);
+  --background-color: #333;
+}
 
 html, body {
   margin: 0;
   padding: 0;
   height: 100%; /* Ensure body takes full height */
 }
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 body {
-  font-family: 'Noto Sans', sans-serif; /* Changed to match imported font */
-  display: flex; /* Enable flexbox for alignment */
-  flex-direction: column; /* Stack children vertically */
-  align-items: center; /* Center horizontally */
-  padding-top: 150px; /* Offset the fixed header height */
-  background-color: #b2b2b2;
+  font-family: 'Noto Sans', sans-serif; /* Match imported font */
+  background-color: #2c2c2c;
   color: #333;
   min-height: 100vh; /* Ensure it covers the full viewport height */
   box-sizing: border-box; /* Ensure padding doesn't affect dimensions */
+  /* Removed flex properties */
 }
 
-/* Full-width header */
+/* Header Styles */
 .headerheader {
-  position: fixed; /* Keep the header fixed at the top */
+  position: fixed;
   top: 0;
   left: 0;
-  width: 100%; /* Full width of the viewport */
-  height: 150px; /* Fixed height */
+  width: 100%;
+  height: 150px;
   background-color: #3a3a39;
   background-image: url(header.jpg);
   background-repeat: no-repeat;
-  background-position: right center; /* Align background image to the right and center vertically */
-  background-size: contain; /* Maintain the image's aspect ratio */
-  display: flex; /* Enable flexbox for layout */
-  justify-content: center; /* Center the content (title) horizontally */
-  align-items: center; /* Center the content vertically */
-  padding: 0 20px; /* Add horizontal padding */
-  box-sizing: border-box; /* Include padding in width calculations */
-  z-index: 1000; /* Ensure the header stays on top */
+  background-position: right center;
+  background-size: contain;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 20px;
+  box-sizing: border-box;
+  z-index: 1000;
 }
 
-/* Wrapper to space login and logout buttons */
 .header-wrapper {
-  display: flex; /* Enable flexbox for alignment */
-  justify-content: center; /* Horizontally center the title */
-  align-items: center; /* Vertically center the title */
-  position: relative; /* For absolute positioning of buttons */
-  height: 100%; /* Match the height of the header */
-  width: 100%; /* Match the width of the header */
-}
-
-/* Center the main header */
-#mainheader {
-  color: #c7b05a; /* Text color */
-  font-size: 26px; /* Adjust font size */
-  margin: 0; /* Remove default margins */
-  font-weight: lighter; /* Font weight */
-  text-align: center; /* Center text */
-}
-
-/* Login and Logout button styling */
-.login-button, #logoutButton {
-  width: 100px; /* Fixed width */
-  height: 40px; /* Increased height for better visibility */
-  position: absolute; /* Position absolutely within the header */
-  top: 50%; /* Center vertically */
-  right: 20px; /* Align to the right edge */
-  transform: translateY(-50%); /* Adjust for perfect vertical centering */
-  color: #fff; /* Text color */
-  padding: 0; /* Remove padding to fit fixed size */
-  display: flex; /* Enable flexbox for layout */
-  align-items: center; /* Center text vertically */
-  justify-content: center; /* Center text horizontally */
-  border: 1px solid #c7b05a; /* Border color */
-  font-weight: 500; /* Font weight for text */
-  text-align: center; /* Center-align text */
-  text-decoration: none; /* Remove underline */
-  transition: all ease-in-out 0.3s; /* Smooth hover effect */
-  background-color: transparent; /* Transparent background initially */
-  cursor: pointer;
-  z-index: 1100; /* Ensure the button stays above other elements */
-}
-
-/* Hover effect for the buttons */
-.login-button:hover, #logoutButton:hover {
-  background-color: #c7b05a; /* Add background on hover */
-  color: #3a3a39; /* Change text color on hover */
-}
-
-/* Main content below the header */
-#authSection, #chatSection {
-  width: 90%; /* Use relative width for responsiveness */
-  max-width: 1200px; /* Increased max-width for larger screens */
-  margin-top: 150px; /* Space below the fixed header */
-  margin-bottom: 20px; /* Add margin at the bottom */
-  padding: 20px;
-  background-color: #3a3a39;
-  border-radius: 8px;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-  box-sizing: border-box;
-  text-align: center; /* Center the text inside */
-  display: flex; /* Enable Flexbox */
-  flex-direction: column; /* Stack children vertically */
-  align-items: stretch;
-  height: calc(100vh - 170px); /* Adjusted height to accommodate header and margins */
-}
-
-/* Authentication header */
-.authheader {
-  text-align: left;
-  color: #c7b05a;
-  font-weight: lighter;
-}
-
-/* Input styling */
-input[type="email"], input[type="password"], input[type="text"] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  height: 100%;
   width: 100%;
-  padding: 8px 40px 8px 12px; /* Reduced vertical padding, added right padding for send button */
-  margin: 10px 0;
-  border: 1px solid #c7b05a;
-  border-radius: 4px;
-  box-sizing: border-box;
-  background-color: #abababad;
-  font-size: 14px; /* Adjust font size for smaller height */
 }
 
-input::placeholder {
-  color: #c4c2c2; /* Placeholder text color */
+
+
+#mainheader {
+  color: #c7b05a;
+  font-size: 26px;
+  margin: 0;
   font-weight: lighter;
-  opacity: 0.7; /* Ensure partial opacity */
-  font-family: 'Noto Sans', sans-serif; /* Apply Noto Sans font */
+  text-align: center;
 }
 
-/* Buttons styling */
-button {
-  padding: 12px;
-  margin-top: 10px;
-  background-color: #c7b05a;
-  border: none;
-  color: white;
-  cursor: pointer;
-  border-radius: 4px;
-  box-sizing: border-box;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+.header-logo {
+  width: 250px; /* Adjust size as needed */
+  height: auto;
+  position: absolute; /* Position absolutely within the header */
+  left: 20px; /* Align to the left with some spacing */
 }
 
-button:hover {
-  background-color: #c6b888;
-  transform: scale(1.05);
-}
-
-/* Chat controls (e.g., new chat button) */
-#chatControls {
+.login-button, #logoutButton {
+  width: 100px;
+  height: 40px;
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  color: #fff;
+  padding: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Align buttons to the start */
-  margin-bottom: 10px;
+  justify-content: center;
+  border: 1px solid #c7b05a;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  transition: all ease-in-out 0.3s;
+  background-color: transparent;
+  cursor: pointer;
+  z-index: 1100;
 }
 
-/* New Chat button styling */
+.login-button:hover, #logoutButton:hover {
+  background-color: #c7b05a;
+  color: #3a3a39;
+}
+
+/* Container and Sidebar Styles */
+.container {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 150px);
+  margin-top: 150px;
+}
+
+.sidebar {
+  width: 200px;
+  background-color: #2c2c2c;
+  color: #ffffff;
+  padding: 20px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  position: fixed;
+  top: 150px;
+  left: 0;
+  height: calc(100vh - 150px);
+  overflow-y: auto;
+  transition: width 0.3s ease;
+  z-index: 999;
+}
+
+.sidebar nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar nav ul li {
+  margin-bottom: 20px;
+}
+
+.sidebar nav ul li a {
+  color: #c7b05a;
+  text-decoration: none;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  transition: color 0.3s ease;
+}
+
+.sidebar nav ul li a:hover {
+  color: #d9b35d;
+}
+
+.sidebar nav ul li a i {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+/* Main Content Styles */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin-left: 200px;
+  padding: 20px;
+  width: calc(100% - 200px);
+  box-sizing: border-box;
+  background-color: #2f2f2f;
+  overflow: hidden; /* Prevent main content from scrolling */
+}
+
 #newChatButton {
   padding: 10px 20px;
   background-color: #3a3a39;
@@ -177,15 +181,47 @@ button:hover {
   transform: scale(1.05);
 }
 
-/* Chat input and send button container */
-#chatInputContainer {
-  display: flex; /* Enable flex layout */
-  align-items: center; /* Center items vertically */
-  width: 100%; /* Full width */
-  position: relative;
+/* Chat Section Styles */
+#chatSection {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Full height of main-content */
+  background-color: #2f2f2f;
 }
 
-/* Updated message input styling for contenteditable div */
+/* Chat Controls */
+#chatControls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+/* Chat Window */
+#chatWindow {
+  flex-grow: 1; /* Take up remaining space */
+  overflow-y: auto; /* Scrollable */
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #3a3a39;
+  border-radius: 8px;
+  box-shadow: inset 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Chat Input Container */
+#chatInputContainer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  margin-top: 10px;
+}
+
+/* Message Input */
 #messageInput {
   flex-grow: 1;
   padding: 8px 50px 8px 12px;
@@ -200,11 +236,10 @@ button:hover {
   overflow-y: auto;
   caret-color: transparent;
   text-align: left;
-  line-height: 1.2; /* Added line-height */
-  font-family: 'Noto Sans', sans-serif; /* Added font-family */
+  line-height: 1.2;
+  font-family: 'Noto Sans', sans-serif;
 }
 
-/* Placeholder styling */
 #messageInput:empty::before {
   content: attr(data-placeholder);
   color: #c4c2c2;
@@ -216,7 +251,6 @@ button:hover {
   width: calc(100% - 24px);
 }
 
-/* Custom cursor - appears only when the message input is focused */
 #messageInput:focus::after {
   content: '';
   position: absolute;
@@ -224,24 +258,21 @@ button:hover {
   width: 2px;
   animation: fadeBlink 1s infinite;
   left: calc(12px + var(--cursor-x, 0));
-  height: var(--cursor-height, 1em); /* Use the cursor height variable */
+  height: var(--cursor-height, 1em);
 }
 
-/* Keyframes for smooth fade animation */
 @keyframes fadeBlink {
   0% { opacity: 1; }
   50% { opacity: 0; }
   100% { opacity: 1; }
 }
 
-/* Hover effects */
 #messageInput:hover {
   border-color: #d9b35d;
   background-color: #5c5c5c;
   box-shadow: 0 0 5px rgba(217, 179, 93, 0.5);
 }
 
-/* Focus effects */
 #messageInput:focus {
   outline: none;
   border-color: #d9b35d;
@@ -249,82 +280,63 @@ button:hover {
   box-shadow: 0 0 8px rgba(217, 179, 93, 0.8);
 }
 
-/* Send button */
+/* Send Button */
 #sendButton {
-  width: 40px; /* Fixed width for the button */
-  height: 40px; /* Fixed height for the button */
-  margin-left: 8px; /* Space between input and button */
+  width: 40px;
+  height: 40px;
+  margin-left: 8px;
   margin-bottom: 10px;
-  background-color: transparent; /* No background color */
-  border: none; /* Remove borders */
-  background-image: url('send-button.svg'); /* Path to your SVG */
-  background-size: contain; /* Ensure the SVG fits inside the button */
-  background-repeat: no-repeat; /* Prevent repetition */
-  background-position: center; /* Center the SVG inside the button */
+  background-color: transparent;
+  border: none;
+  background-image: url('send-button.svg');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   cursor: pointer;
   transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
-  display: flex; /* Enable flexbox for centering */
-  justify-content: center; /* Center horizontally */
-  align-items: center; /* Center vertically */
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* Add hover and active effects for send button */
 #sendButton:hover {
-  transform: scale(1.1); /* Slightly enlarge on hover */
-  filter: brightness(1.2); /* Brighten the SVG */
+  transform: scale(1.1);
+  filter: brightness(1.2);
 }
 
 #sendButton:active {
-  transform: scale(1.0); /* Return to original size on click */
-  filter: brightness(0.9); /* Darken slightly on click */
+  transform: scale(1.0);
+  filter: brightness(0.9);
 }
 
-/* Adjust the SVG icon size via CSS */
 #sendButton svg {
   width: 20px;
   height: 20px;
 }
 
-/* Chat window styling */
-#chatWindow {
-  display: flex; /* Enable flexbox for proper layout */
-  flex-direction: column; /* Stack messages vertically */
-  align-items: stretch; /* Make sure children stretch to the container width */
-  flex-grow: 1; /* Allow the chat window to grow */
-  width: 100%;
-  padding: 10px; /* Padding for spacing */
-  overflow-y: auto; /* Enable scrolling if content overflows */
-  margin-bottom: 10px;
-  background-color: #3a3a39;
-  border-radius: 8px;
-  box-shadow: inset 0px 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Message styling */
+/* Message Styling */
 .message {
-  display: block; /* Change to block to allow full width */
-  padding: 10px; /* Padding for readability */
+  display: block;
+  padding: 10px;
   margin: 5px 0;
   border-radius: 4px;
   font-family: 'Noto Sans', sans-serif;
-  max-width: 90%; /* Maximum width of message box */
-  word-wrap: break-word; /* Ensures long words break appropriately */
+  max-width: 90%;
+  word-wrap: break-word;
 }
 
 .message.user {
   background-color: #c7b05a;
   color: #3a3a39;
-  align-self: flex-end; /* Align user messages to the right */
+  align-self: flex-end;
   text-align: left;
 }
 
-/* Style for assistant messages containing markdown */
 .message.assistant .message-content {
-  /* Apply styles to make markdown content readable */
   font-family: 'Noto Sans', sans-serif;
   color: #ffffff;
   text-align: left;
-  word-wrap: break-word; /* Ensures long words break appropriately */
+  word-wrap: break-word;
 }
 
 /* Code blocks */
@@ -387,6 +399,7 @@ button:hover {
   font-weight: bold;
   width: 25px; /* Fixed width for alignment */
 }
+
 /* Blockquotes */
 .message.assistant blockquote {
     border-left: 4px solid #c7b05a;
@@ -438,6 +451,7 @@ button:hover {
     /* Ensure list styles are visible */
     list-style-type: disc; /* or any other desired style */
 }
+
 .system-message {
   font-family: 'Noto Sans', sans-serif; /* Apply Noto Sans font */
   font-size: 18px; /* Adjust font size as needed */
@@ -467,12 +481,107 @@ button:hover {
 }
 
 .message-loading {
-  font-style: italic;
-  color: gray;
+  position: relative; /* To position the pseudo-element */
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: transparent;
+  color: #fff;
+  font-size: 0.9em;
+  margin-top: 10px;
 }
 
-/* Tablets */
+/* Pseudo-element for the Flashing Light in Loading Indicator */
+.message-loading::after {
+  content: '';
+  position: absolute;
+  top: 30%;
+  left: 30%;
+  width: 50%;
+  height: 2px;
+  background: #c7b05a;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: flash 1s infinite;
+}
+
+/* Keyframes for the Flashing Animation */
+
+.shine {
+  position: relative;
+  display: inline-block; /* Ensures the container fits the text */
+  font-size: 1em; /* Adjust as needed */
+  font-weight: bold;
+  color: var(--base-text-color);
+  overflow: hidden; /* Hide the shine outside the text */
+}
+.shine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -75%; /* Start position before the text */
+  width: 50%; /* Width covering half the text */
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    #ffffff55 50%, /* Semi-transparent white for subtle shine */
+    transparent 100%
+  );
+  transform: skewX(-25deg);
+  animation: shineAnimation 3s infinite;
+}
+
+@keyframes shineAnimation {
+  0% {
+    left: -150%;
+  }
+  50% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+
+
+/* Keyframes for the Flashing Light Animation */
+@keyframes shine {
+  0% {
+    left: -100%;
+  }
+  20% {
+    left: 25%;
+  }
+  40% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
+  /* Sidebar adjustments for tablets */
+  .sidebar {
+    width: 160px; /* Reduce sidebar width */
+  }
+
+  .main-content {
+    margin-left: 160px; /* Adjust main content margin */
+    width: calc(100% - 160px); /* Adjust main content width */
+  }
+
+  .sidebar nav ul li a {
+    font-size: 14px; /* Smaller font size */
+  }
+
+  .sidebar nav ul li a i {
+    font-size: 16px; /* Smaller icon size */
+  }
+
+  /* Chat sections for tablets */
   #authSection, #chatSection {
     width: 90%;
     max-width: 700px;
@@ -494,8 +603,34 @@ button:hover {
   }
 }
 
-/* Mobile Devices */
 @media (max-width: 480px) {
+  /* Sidebar adjustments for mobile devices */
+  .sidebar {
+    width: 100%; /* Full width on mobile */
+    height: auto; /* Auto height */
+    position: relative; /* Position relative */
+    top: 0; /* Reset top position */
+    margin-bottom: 20px; /* Space below sidebar */
+  }
+
+  .main-content {
+    margin-left: 0; /* Remove left margin */
+    width: 100%; /* Full width */
+  }
+
+  .sidebar nav ul li {
+    margin-bottom: 15px; /* Reduce space between items */
+  }
+
+  .sidebar nav ul li a {
+    font-size: 14px; /* Smaller font size */
+  }
+
+  .sidebar nav ul li a i {
+    font-size: 16px; /* Smaller icon size */
+  }
+
+  /* Chat sections for mobile devices */
   #authSection, #chatSection {
     width: 95%;
     max-width: 100%;

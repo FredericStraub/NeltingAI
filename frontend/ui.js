@@ -29,10 +29,10 @@ function appendMessage(sender, message) {
     contentElement = document.createElement('div'); // Block-level for Assistant
     contentElement.classList.add('message-content');
 
-    // Add loading indicator
+    // Add loading indicator with shine effect
     const loadingElement = document.createElement('span');
-    loadingElement.classList.add('message-loading');
-    loadingElement.textContent = 'Typing...';
+    loadingElement.classList.add('message-loading', 'shine'); // Add 'shine' class
+    loadingElement.textContent = 'Ich überlege gerade ...';
     contentElement.appendChild(loadingElement);
 
     // Initialize assistant response buffer and parser state for this message element
@@ -74,7 +74,7 @@ function displaySystemMessage(message) {
 function updateMessageContent(messageElement, content, isFinalChunk = false) {
   console.log("updateMessageContent called with:", repr(content)); // Debug
 
-  
+
   // Normalize line breaks
   content = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
@@ -102,8 +102,6 @@ function updateMessageContent(messageElement, content, isFinalChunk = false) {
       const cleanHTML = DOMPurify.sanitize(dirtyHTML);
 
       // Update the element's content with the formatted response
-
-  // Update the element's content with the formatted response
       contentElementDiv.innerHTML = cleanHTML;
 
       // Remove <p> tags inside <li> elements
