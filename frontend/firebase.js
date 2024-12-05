@@ -7,8 +7,9 @@ import {
   signInWithCustomToken,
   signOut,
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-let app, auth;
+let app, auth, firestore;
 let firebaseInitializationPromise;
 
 /**
@@ -23,6 +24,7 @@ function initializeFirebase() {
       const firebaseConfig = await response.json();
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
+      firestore = getFirestore(app); // Initialize Firestore
       console.log("Firebase initialized:", app);
     })
     .catch((error) => {
@@ -45,6 +47,18 @@ async function getAuthInstance() {
     throw new Error("Firebase Auth not initialized");
   }
   return auth;
+}
+
+/**
+ * Get the Firestore instance after initialization
+ * @returns {Promise<Firestore>}
+ */
+async function getFirestoreInstance() {
+  await firebaseInitializationPromise;
+  if (!firestore) {
+    throw new Error("Firestore not initialized");
+  }
+  return firestore;
 }
 
 /**
@@ -148,6 +162,7 @@ async function logoutUser() {
 
 export {
   getAuthInstance,
+  getFirestoreInstance,
   firebaseInitializationPromise,
   signup,
   login,

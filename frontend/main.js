@@ -2,8 +2,8 @@
 
 import { appendMessage, displaySystemMessage, updateMessageContent, repr } from './ui.js';
 import { createNewChat, sendChatMessageStream } from './chat.js';
-import { getAuthInstance, firebaseInitializationPromise, logoutUser } from './firebase.js';
-
+import { getAuthInstance, getFirestoreInstance, firebaseInitializationPromise, logoutUser } from './firebase.js';
+import { collection, doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
 /**
  * Handle creating a new chat session
  * @returns {Promise<string|null>} - Returns the new chat ID or null on failure
@@ -145,6 +145,8 @@ async function initializeAuthListener() {
   authInstance.onAuthStateChanged(async (user) => {
     if (user) {
       console.log('User is authenticated:', user); // Debug
+      // Call checkUserRoleAndUpdateUI here
+      await checkUserRoleAndUpdateUI();
       if (!currentChatId) {
         currentChatId = await handleCreateNewChat();
         console.log(`Current Chat ID set to: ${currentChatId}`); // Debug
@@ -156,6 +158,54 @@ async function initializeAuthListener() {
     }
   });
 }
+
+async function checkUserRoleAndUpdateUI() {
+  // Ensure Firebase is initialized
+  await firebaseInitializationPromise;
+
+  const authInstance = await getAuthInstance();
+  const user = authInstance.currentUser;
+
+  if (!user) {
+    console.error("No user is currently logged in.");
+    return;
+  }
+
+  const uid = user.uid;
+
+  // Get Firestore instance
+  const firestore = await getFirestoreInstance();
+
+  try {
+    // Use modular Firestore syntax to reference the user's document
+    const userDocRef = doc(collection(firestore, 'user'), uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+      console.error("User document not found in Firestore.");
+      return;
+    }
+
+    const userData = userDoc.data();
+    const role = userData.role || 'user';
+
+    const documentsTab = document.getElementById('documentsTab');
+    if (role === 'admin') {
+      // Show the 'Documents' tab
+      if (documentsTab) {
+        documentsTab.style.display = 'block';
+      }
+    } else {
+      // Hide the 'Documents' tab
+      if (documentsTab) {
+        documentsTab.style.display = 'none';
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching user role from Firestore:", error);
+  }
+}
+
 
 /**
  * Close the EventSource connection if it exists
