@@ -16,16 +16,19 @@ class Settings(BaseSettings):
     ALLOW_ORIGINS: str  # Replace with your frontend's URL
     OPENAI_API_KEY: str
     MODEL: str 
-    EMBEDDING_MODEL: str = 'text-embedding-ada-002'
-    EMBEDDING_DIMENSIONS: int = 1024
-    DOCS_DIR: str = 'data/docs'
-    EXPORT_DIR: str = 'data'
-    VECTOR_SEARCH_TOP_K: int = 10
-    FIREBASE_STORAGE_BUCKET: str = 'neltingairag-27e31.firebasestorage.app'  
-    SERVICE_ACCOUNT_KEY_PATH: str = './serviceAccountKey.json'
-    WEAVIATE_HOST: str = 'localhost'
-    WEAVIATE_PORT: int = 8080
-    MAIN_SYSTEM_PROMPT: str = "Your main system prompt here"
+    EMBEDDING_MODEL: str 
+    EMBEDDING_DIMENSIONS: int 
+    DOCS_DIR: str 
+    EXPORT_DIR: str 
+    VECTOR_SEARCH_TOP_K: int
+    FIREBASE_STORAGE_BUCKET: str 
+    SERVICE_ACCOUNT_KEY_PATH: str 
+    WEAVIATE_HOST: str 
+    WEAVIATE_PORT: int 
+    WEAVIATE_GRPC_PORT: int
+    WEAVIATE_GRPC_SECURE: bool
+    WEAVIATE_HTTP_SECURE: bool
+    MAIN_SYSTEM_PROMPT: str 
     LANGFUSE_SECRET_KEY: str
     LANGFUSE_PUBLIC_KEY: str
     LANGFUSE_HOST: str 
@@ -53,7 +56,7 @@ class Settings(BaseSettings):
 
     # Define Pydantic v2 configuration
     model_config = SettingsConfigDict(
-        env_file='/Volumes/External/Netling AI/backend/.env',
+        env_file='.env',
         env_file_encoding='utf-8',
     )
 

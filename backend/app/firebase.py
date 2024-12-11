@@ -4,15 +4,17 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore, storage
 from app.config import settings
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase Admin SDK
-def initialize_firebase():
-    if not firebase_admin._apps:
-        try:
+def initialize_firebase_app(app: FastAPI):
+    """
+    Initialize Firebase Admin SDK and store Firestore and Storage clients in app.state.
+    """
+    try:
+        if not firebase_admin._apps:
             cred = credentials.Certificate(settings.SERVICE_ACCOUNT_KEY_PATH)
             firebase_admin.initialize_app(
                 cred,
@@ -20,35 +22,67 @@ def initialize_firebase():
                     'storageBucket': settings.FIREBASE_STORAGE_BUCKET,
                 }
             )
-            logger.info("Firebase Admin initialized successfully.")
-        except Exception as e:
-            logger.exception(f"Failed to initialize Firebase Admin: {e}")
-            raise e
+            firestore_client = firestore.client()
+            storage_bucket = storage.bucket()
+            app.state.firestore_client = firestore_client
+            app.state.storage_bucket = storage_bucket
+            app.state.auth_client = auth
+            logger.info("Firebase Admin initialized and clients stored in app.state.")
+        else:
+            logger.info("Firebase Admin already initialized.")
+    except Exception as e:
+        logger.exception(f"Failed to initialize Firebase Admin: {e}")
+        raise e
 
-# Call the initialization function at import time
-initialize_firebase()
-
-# Firestore client
-firestore_client = firestore.client()
-
-# Storage bucket
-storage_bucket = storage.bucket()
-
-# Define API Router for Firebase-related routes
-router = APIRouter()
-
-def get_firestore_client():
-    return firestore_client
-
-def get_storage_bucket():
-    return storage_bucket
-
-def get_auth_client():
-    return auth
-
-def verify_firebase_id_token(id_token: str):
+def close_firebase_app(app: FastAPI):
+    """
+    Close the Firebase Admin SDK and clean up resources.
+    """
     try:
-        decoded_token = auth.verify_id_token(id_token)
+        # Iterate over all initialized apps and delete them
+        for app_name in list(firebase_admin._apps):
+            firebase_admin.delete_app(firebase_admin.get_app(app_name))
+            logger.info(f"Firebase app '{app_name}' deleted successfully.")
+    except Exception as e:
+        logger.exception(f"Failed to close Firebase Admin SDK: {e}")
+        raise e
+
+def get_firestore_client(app: FastAPI):
+    """
+    Retrieve Firestore client from app.state.
+    """
+    client = getattr(app.state, "firestore_client", None)
+    if client is None:
+        logger.error("Firestore client is not initialized.")
+        raise RuntimeError("Firestore client is not initialized.")
+    return client
+
+def get_storage_bucket(app: FastAPI):
+    """
+    Retrieve Storage bucket from app.state.
+    """
+    bucket = getattr(app.state, "storage_bucket", None)
+    if bucket is None:
+        logger.error("Storage bucket is not initialized.")
+        raise RuntimeError("Storage bucket is not initialized.")
+    return bucket
+
+def get_auth_client(app: FastAPI):
+    """
+    Retrieve Auth client from app.state.
+    """
+    auth_client = getattr(app.state, "auth_client", None)
+    if auth_client is None:
+        logger.error("Auth client is not initialized.")
+        raise RuntimeError("Auth client is not initialized.")
+    return auth_client
+
+def verify_firebase_id_token(id_token: str, auth_client):
+    """
+    Verify Firebase ID token using the provided auth client.
+    """
+    try:
+        decoded_token = auth_client.verify_id_token(id_token)
         uid = decoded_token['uid']
         return uid
     except Exception as e:
@@ -56,6 +90,8 @@ def verify_firebase_id_token(id_token: str):
         raise e
 
 # Firebase configuration endpoint for frontend
+router = APIRouter()
+
 @router.get("/firebase-config", tags=["Configuration"])
 def get_firebase_config():
     config = {

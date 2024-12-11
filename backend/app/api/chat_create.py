@@ -1,6 +1,6 @@
 # backend/app/api/chat_create.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from app.firebase import get_firestore_client
@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import logging
 import asyncio
 
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -18,13 +19,16 @@ class NewChatResponse(BaseModel):
 
 @router.post("/new", response_model=NewChatResponse, tags=["Chat"])
 async def create_new_chat(
-    current_user: dict = Depends(get_current_user)
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    
 ):
     """
     Endpoint to create a new chat. Generates a unique chat_id and initializes the chat document in Firestore.
+    
     """
+    firestore_client = get_firestore_client(request.app)
     uid = current_user['uid']
-    firestore_client = get_firestore_client()
     chat_id = f"chat_{uuid4().hex}"
     chat_ref = firestore_client.collection('chats').document(chat_id)
     

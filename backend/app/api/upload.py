@@ -1,6 +1,6 @@
 # backend/app/api/upload.py
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Form, Request
 import os
 import aiofiles
 import logging
@@ -11,19 +11,23 @@ from app.loader import ingest_and_index
 from app.config import settings
 from app.firebase import get_storage_bucket, get_firestore_client
 from uuid import uuid4
-
+from requests import request
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
 @router.post("/upload-file/", status_code=201, tags=["Upload"])
 async def upload_file(
+    request: Request,
     description: str = Form(...),  # New field for document description
     file: UploadFile = File(...),
     admin_user: dict = Depends(get_current_admin),  # Only admins can upload
 ):
     logger.debug(f"Received request to upload file: {file.filename}")
+    
     try:
+        firestore_client = get_firestore_client(request.app)
+
         cleaned_filename = file.filename.strip()
         if not (cleaned_filename.endswith(".pdf") or cleaned_filename.endswith(".docx")):
             raise HTTPException(
@@ -35,7 +39,7 @@ async def upload_file(
         logger.debug(f"Admin user details: {admin_user}")
 
         # Define the storage path in Firebase Storage
-        storage_bucket = get_storage_bucket()
+        storage_bucket = get_storage_bucket(request.app)
         blob_path = f"uploads/{admin_user.get('uid')}/{cleaned_filename}"
         blob = storage_bucket.blob(blob_path)
         logger.debug(f"Firebase blob path: {blob_path}")
@@ -72,7 +76,6 @@ async def upload_file(
         logger.debug(f"Generated signed URL: {download_url}")
 
         # Get Firestore client
-        firestore_client = get_firestore_client()
         if not firestore_client:
             logger.error("Firestore client is not initialized.")
             raise HTTPException(
@@ -100,7 +103,7 @@ async def upload_file(
 
         # Ingest and index the document
         logger.debug("Starting ingestion and indexing of document...")
-        await ingest_and_index(download_url, upload_id)
+        await ingest_and_index(download_url, upload_id, request.app)
 
         logger.info(f"File {cleaned_filename} ingested and indexed successfully.")
         return {"message": "Document uploaded and index built successfully.", "download_url": download_url}

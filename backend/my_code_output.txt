@@ -1,0 +1,1916 @@
+Directory Structure:
+/
+    test_chain.py
+    main.py
+    firebasetoken_for_testing.py
+app/
+    db.py
+    config.py
+    models.py
+    export.py
+    openai.py
+    loader.py
+    firebase.py
+app/assistants/
+    assistant.py
+    prompts.py
+app/assistants/__pycache__/
+app/dataconnect/
+app/dataconnect/schema/
+app/dataconnect/connector/
+app/utils/
+    splitter.py
+    sse_stream.py
+app/utils/__pycache__/
+app/__pycache__/
+app/api/
+    auth.py
+    chat_create.py
+    index.py
+    upload.py
+    documents.py
+    __init__.py
+    chat.py
+    admin.py
+    dependencies.py
+app/api/__pycache__/
+uploads/
+__pycache__/
+
+Collected Python Code:
+# Code from /Volumes/External/Netling AI/backend/test_chain.py
+# test_chain.py
+
+import asyncio
+from langchain.chains import LLMChain
+from langchain.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+import logging
+
+# Import Settings from config.py
+from app.config import settings
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+def build_chain():
+    template = """
+    Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
+
+    Kontext:
+    {context}
+
+    Frage: {question}
+    Antwort:
+    Bitte antworte nur mit dem Text der Antwort, ohne zusätzliche Metadaten oder Struktur.
+    """
+
+    prompt = ChatPromptTemplate.from_template(template)
+
+    # Initialize Langfuse CallbackHandler (mocked for testing)
+    langfuse_handler = None  # Replace with actual handler if needed
+
+    logger.info("Langfuse CallbackHandler successfully initialized.")
+
+    model = ChatOpenAI(
+        model_name=settings.MODEL,
+        temperature=0.2,  # Adjusted for more dynamic responses
+        openai_api_key=settings.OPENAI_API_KEY,
+        callbacks=[]  # Removed Langfuse callbacks for testing
+    )
+
+    # Create chain without Langfuse for testing
+    chain = LLMChain(llm=model, prompt=prompt, callbacks=[], verbose=True)
+    return chain
+
+async def test_chain():
+    chain = build_chain()
+    query = {
+        "context": "Fritjof Nelting, Jahrgang 1983, ist Geschäftsführer der Gezeiten Haus Gruppe mit Sitz in Wesseling bei Köln. Er beschäftigt sich intensiv mit der Verbindung westlicher Psychosomatik und Traditioneller Chinesischer Medizin.",
+        "question": "Wer ist Fritjof?"
+    }
+    response = await chain.ainvoke(query)
+    print("AI Response:", response)
+
+if __name__ == "__main__":
+    asyncio.run(test_chain())
+
+# Code from /Volumes/External/Netling AI/backend/main.py
+# backend/main.py
+from fastapi import FastAPI, Request, Depends
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
+from app.api import auth_router, chat_router, chat_create_router, upload_router, admin_router
+from app.firebase import router as firebase_config_router  # Import the firebase router
+from app.config import settings
+import logging
+import sys
+from app.db import close_weaviate_client, get_weaviate_client
+from starlette.middleware.base import BaseHTTPMiddleware
+from app.api.documents import router as documents_router
+from fastapi import FastAPI, Request, Depends
+from contextlib import asynccontextmanager
+from app.api import (
+    auth_router,
+    chat_router,
+    chat_create_router,
+    upload_router,
+    admin_router,
+    documents_router
+)
+from app.firebase import initialize_firebase_app, close_firebase_app
+from app.db import (
+    initialize_weaviate_client,
+    ensure_weaviate_schema,
+    test_weaviate_connection,
+    close_weaviate_client
+)
+from app.config import settings
+import logging
+import sys
+from starlette.middleware.base import BaseHTTPMiddleware
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+class DebugMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if "Authorization" in request.headers:
+            logger.debug(f"Authorization Header: {request.headers['Authorization']}")
+        response = await call_next(request)
+        return response
+
+# Define the lifespan context manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        # Startup logic
+        initialize_firebase_app(app)
+        logger.info("Firebase initialized.")
+        
+        initialize_weaviate_client(app)
+        logger.info("Weaviate client initialized.")
+        
+        ensure_weaviate_schema(app)
+        logger.info("Weaviate schema ensured.")
+        
+        test_weaviate_connection(app)
+        logger.info("Weaviate connection tested.")
+        
+        logger.info("Application startup complete.")
+        
+        yield  # Application runs here
+        
+    except Exception as e:
+        logger.exception(f"Error during startup: {e}")
+        sys.exit(1)  # Exit the application if startup fails
+        
+    finally:
+        # Shutdown logic
+        close_weaviate_client(app)
+        logger.info("Weaviate client closed.")
+        
+        close_firebase_app(app)
+        logger.info("Firebase Admin SDK closed.")
+        
+        logger.info("Application shutdown complete.")
+
+# Initialize FastAPI application with lifespan
+app = FastAPI(
+    title="NeltingAI",
+    description="An AI-driven application with authentication, chat, and upload functionalities.",
+    version="1.0.0.",
+    lifespan=lifespan  # Pass the lifespan context manager here
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in settings.ALLOW_ORIGINS.split(',')],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# Include API routers with appropriate prefixes and tags
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(chat_create_router, prefix="/chat", tags=["Chat"])
+app.include_router(chat_router, prefix="/chat", tags=["Chat"])
+app.include_router(upload_router, prefix="/upload", tags=["Upload"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin"])
+app.include_router(firebase_config_router, tags=["Configuration"])
+app.include_router(documents_router, prefix="/api", tags=["Documents"])  # Include Documents Router
+app.add_middleware(DebugMiddleware)
+
+
+# Serve frontend static files with SPA fallback
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
+from pathlib import Path
+import os
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 404 and not path.startswith("api"):
+            index_path = os.path.join(self.directory, "index.html")
+            if os.path.exists(index_path):
+                return FileResponse(index_path)
+        return response
+
+# Define the frontend directory using pathlib for better path handling
+frontend_dir = Path("/Volumes/External/Netling AI/frontend")
+
+# Verify that the directory exists
+if not frontend_dir.is_dir():
+    logger.error(f"Frontend directory does not exist: {frontend_dir}")
+    sys.exit(1)
+
+# Mount static files using the custom SPAStaticFiles class
+app.mount("/", SPAStaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+
+# Health Check Endpoint
+@app.get('/health', tags=["Health Check"])
+def health_check():
+    return {'status': 'ok'}
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+@app.get("/secure-endpoint")
+def secure_endpoint(token: str = Depends(oauth2_scheme)):
+    return {"message": "This endpoint is secured!", "token": token}
+
+# Exception handler for validation errors
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error for request {request.method} {request.url.path}: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": exc.body},
+    )
+
+
+# Code from /Volumes/External/Netling AI/backend/firebasetoken_for_testing.py
+import firebase_admin
+from firebase_admin import auth, credentials
+import requests
+from fastapi import HTTPException, status
+
+def verify_firebase_id_token(id_token: str) -> dict:
+    """
+    Verifies the Firebase ID token and returns the decoded token.
+    """
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        return decoded_token
+    except auth.ExpiredIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except auth.InvalidIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token verification failed: {e}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+# Initialize Firebase Admin SDK (if not already initialized)
+cred = credentials.Certificate('/Volumes/External/Netling AI/backend/app/serviceAccountKeyFireBase.json')
+firebase_admin.initialize_app(cred)
+
+# Sign in using email and password via Firebase REST API
+email = 'fred@gmail.com'
+password = 'test123'
+api_key = 'AIzaSyDPOiSoJkT0g9iSYZYNuXq9C6oUULPJbrY'  # From Firebase project settings
+
+payload = {
+    'email': email,
+    'password': password,
+    'returnSecureToken': True
+}
+
+r = requests.post(f'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}', json=payload)
+id_token = r.json()['idToken']
+print(f'ID Token: {id_token}')
+print(verify_firebase_id_token(id_token))
+
+
+# Code from /Volumes/External/Netling AI/backend/app/db.py
+# backend/app/db.py
+
+import weaviate
+from app.config import settings
+import logging
+import time
+from fastapi import FastAPI
+from weaviate.classes.init import AdditionalConfig, Timeout
+from weaviate.connect import ConnectionParams
+
+logger = logging.getLogger(__name__)
+
+
+# Function to initialize Weaviate client
+def initialize_weaviate_client(app: FastAPI):
+    """
+    Initialize the Weaviate client and store it in the FastAPI application's state.
+    """
+    try:
+        # Use the connection helper function for local setup
+        client = weaviate.WeaviateClient(
+            connection_params=ConnectionParams.from_params(
+                http_port=settings.WEAVIATE_PORT,
+                http_host=settings.WEAVIATE_HOST,
+                grpc_port=settings.WEAVIATE_GRPC_PORT,
+                http_secure=settings.WEAVIATE_HTTP_SECURE,
+                grpc_secure=settings.WEAVIATE_GRPC_SECURE,  
+                grpc_host=settings.WEAVIATE_HOST  # Set to True if using gRPC over TLS
+            ),
+            # Uncomment and replace with your actual API key if needed
+            # auth_client_secret=Auth.api_key("your_api_key"),  
+            additional_headers={
+                "X-OpenAI-Api-Key": settings.OPENAI_API_KEY  # Ensure this is set correctly
+            },
+            additional_config=AdditionalConfig(
+                timeout=Timeout(init=30, query=60, insert=120)  # Adjust as needed
+            )
+)
+        client.connect()
+        # Store the client in the application's state
+        app.state.weaviate_client = client
+        logger.info("Weaviate client initialized and stored in app.state.")
+        
+    except Exception as e:
+        logger.exception(f"Failed to initialize Weaviate client: {e}")
+        raise e
+
+# Function to ensure Weaviate schema exists using Collections API (v4)
+def ensure_weaviate_schema(app: FastAPI):
+    class_name = "ChatDocument"
+    try:
+        weaviate_client = get_weaviate_client(app)
+        # Attempt to retrieve the existing collection
+        weaviate_client.collections.get(class_name)
+        logger.info(f"Weaviate schema '{class_name}' already exists.")
+    except weaviate.exceptions.CollectionNotFoundError:
+        # Define the collection schema
+        weaviate_client.collections.create(
+            name=class_name,
+            vectorizer_config=weaviate.classes.config.Configure.Vectorizer.text2vec_openai(),
+            generative_config=weaviate.classes.config.Configure.Generative.cohere(),
+            properties=[
+                weaviate.classes.config.Configure.Property(
+                    name="content",
+                    data_type=weaviate.classes.config.Configure.DataType.TEXT,
+                    vectorize_property_name=False,
+                    tokenization=weaviate.classes.config.Configure.Tokenization.LOWERCASE,
+                ),
+                weaviate.classes.config.Configure.Property(
+                    name="upload_id",
+                    data_type=weaviate.classes.config.Configure.DataType.TEXT,
+                    vectorize_property_name=False,
+                    tokenization=weaviate.classes.config.Configure.Tokenization.LOWERCASE,
+                ),
+            ],
+        )
+        logger.info(f"Weaviate schema '{class_name}' created.")
+
+# Function to test Weaviate connection with retries
+def test_weaviate_connection(app: FastAPI, retries: int = 5, delay: int = 5):
+    """
+    Test the connection to Weaviate with retries.
+    """
+    weaviate_client = get_weaviate_client(app)
+    
+    for attempt in range(1, retries + 1):
+        try:
+            if weaviate_client.is_ready():
+                logger.info("Successfully connected to Weaviate.")
+                return
+            else:
+                logger.warning(f"Weaviate is not ready yet (Attempt {attempt}/{retries}). Retrying in {delay} seconds...")
+        except Exception as e:
+            logger.error(f"Attempt {attempt}/{retries}: Failed to connect to Weaviate: {e}")
+        
+        time.sleep(delay)
+    
+    logger.critical("Weaviate is not ready after multiple retries.")
+    raise RuntimeError("Weaviate is not ready after multiple retries.")
+
+# Function to retrieve Weaviate client from app state
+def get_weaviate_client(app: FastAPI) -> weaviate.Client:
+    """
+    Retrieve the Weaviate client from the FastAPI application's state.
+    """
+    client = getattr(app.state, "weaviate_client", None)
+    if client is None:
+        logger.error("Weaviate client is not initialized.")
+        raise RuntimeError("Weaviate client is not initialized.")
+    return client
+
+# Function to close Weaviate client
+def close_weaviate_client(app: FastAPI):
+    """
+    Close the Weaviate client connection.
+    """
+    try:
+        weaviate_client = get_weaviate_client(app)
+        weaviate_client.close()  # Explicitly close the client
+        logger.info("Weaviate client closed successfully.")
+    except weaviate.exceptions.WeaviateClosedClientError:
+        logger.warning("Weaviate client was already closed.")
+    except Exception as e:
+        logger.error(f"Error closing Weaviate client: {e}")
+
+
+# Code from /Volumes/External/Netling AI/backend/app/config.py
+# backend/app/config.py
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, validator
+import logging
+
+# Configure a logger for the settings
+logger = logging.getLogger("settings")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+class Settings(BaseSettings):
+    ALLOW_ORIGINS: str  # Replace with your frontend's URL
+    OPENAI_API_KEY: str
+    MODEL: str 
+    EMBEDDING_MODEL: str 
+    EMBEDDING_DIMENSIONS: int 
+    DOCS_DIR: str 
+    EXPORT_DIR: str 
+    VECTOR_SEARCH_TOP_K: int
+    FIREBASE_STORAGE_BUCKET: str 
+    SERVICE_ACCOUNT_KEY_PATH: str 
+    WEAVIATE_HOST: str 
+    WEAVIATE_PORT: int 
+    WEAVIATE_GRPC_PORT: int
+    WEAVIATE_GRPC_SECURE: bool
+    WEAVIATE_HTTP_SECURE: bool
+    MAIN_SYSTEM_PROMPT: str 
+    LANGFUSE_SECRET_KEY: str
+    LANGFUSE_PUBLIC_KEY: str
+    LANGFUSE_HOST: str 
+    FIREBASE_TYPE: str
+    FIREBASE_PROJECT_ID: str
+    FIREBASE_PRIVATE_KEY_ID: str
+    FIREBASE_PRIVATE_KEY: str
+    FIREBASE_CLIENT_EMAIL: str
+    FIREBASE_CLIENT_ID: str
+    FIREBASE_AUTH_URI: str
+    FIREBASE_TOKEN_URI: str
+    FIREBASE_AUTH_PROVIDER_X509_CERT_URL: str
+    FIREBASE_CLIENT_X509_CERT_URL: str
+    FIREBASE_UNIVERSE_DOMAIN: str
+    
+    UPLOAD_DIR: str 
+    # Frontend Firebase Config fields
+    FRONTEND_FIREBASE_API_KEY: str
+    FRONTEND_FIREBASE_AUTH_DOMAIN: str
+    FRONTEND_FIREBASE_PROJECT_ID: str
+    FRONTEND_FIREBASE_STORAGE_BUCKET: str
+    FRONTEND_FIREBASE_MESSAGING_SENDER_ID: str
+    FRONTEND_FIREBASE_APP_ID: str
+    FRONTEND_FIREBASE_MEASUREMENT_ID: str
+
+    # Define Pydantic v2 configuration
+    model_config = SettingsConfigDict(
+        env_file='/Volumes/External/Netling AI/backend/.env',
+        env_file_encoding='utf-8',
+    )
+
+    @classmethod
+    def customize_sources(cls, init_settings, env_settings, file_secret_settings):
+        """
+        Customize the order of settings sources to prioritize the `.env` file over environment variables.
+        """
+        return (
+            file_secret_settings,  # Load from .env file first        # Then from environment variables
+            init_settings       # Then from initialization parameters
+        )
+
+
+settings = Settings()
+
+# Code from /Volumes/External/Netling AI/backend/app/models.py
+# backend/app/models.py
+from datetime import datetime
+from pydantic import BaseModel
+from typing import Optional
+
+class User(BaseModel):
+    uid: str
+    email: str
+    username: str
+    # Add other relevant fields as needed
+
+class UserIn(BaseModel):
+    email: str
+    password: str
+    username: str  # Added username field
+
+class UserOut(BaseModel):
+    uid: str
+    email: str
+    username: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class ChatRequest(BaseModel):
+    question: str
+
+class ChatResponse(BaseModel):
+    message: str
+
+class AdminAssignRole(BaseModel):
+    uid: str
+    role: str  # Expected to be "admin" or other roles
+
+class DocumentOut(BaseModel):
+    id: str
+    description: Optional[str] = None
+    file_name: str
+    file_type: str
+    file_url: str
+    size: int
+    upload_id: str
+    uploaded_at: datetime
+    user_id: str
+    
+    class Config:
+        orm_mode = True
+
+
+# Code from /Volumes/External/Netling AI/backend/app/export.py
+# export.py
+
+import os
+import json
+import asyncio
+from datetime import timezone
+from app.config import settings
+from firebase_admin import credentials, firestore, initialize_app
+import logging
+
+logger = logging.getLogger(__name__)
+
+def initialize_export_firebase():
+    try:
+        cred = credentials.Certificate(settings.SERVICE_ACCOUNT_KEY_PATH)
+        initialize_app(cred)
+        firestore_client = firestore.client()
+        logger.info("Firebase Admin initialized for export.")
+        return firestore_client
+    except Exception as e:
+        logger.exception(f"Failed to initialize Firebase Admin for export: {e}")
+        raise e
+
+async def export_chats(export_dir=settings.EXPORT_DIR, iso_format=True):
+    print('Exporting chats to JSON')
+    file_path = os.path.join(export_dir, 'chats.json')
+    firestore_client = initialize_export_firebase()
+    chats_ref = firestore_client.collection('chats')  # Ensure 'chats' is lowercase
+    chats = []
+
+    try:
+        docs = chats_ref.stream()
+        for chat_doc in docs:
+            chat_data = chat_doc.to_dict()
+            if iso_format:
+                # Assuming 'created_at' is a Firestore Timestamp
+                if 'created_at' in chat_data and chat_data['created_at']:
+                    chat_data['created_at'] = chat_data['created_at'].replace(tzinfo=timezone.utc).isoformat()
+                for message in chat_data.get('messages', []):
+                    if 'created_at' in message and message['created_at']:
+                        message['created_at'] = message['created_at'].replace(tzinfo=timezone.utc).isoformat()
+            chats.append(chat_data)
+
+        with open(file_path, 'w') as file:
+            json.dump(chats, file, indent=2)
+        print(f'{len(chats)} chats exported to {file_path}')
+
+    except Exception as e:
+        logger.error(f"Failed to export chats: {e}")
+        raise e
+
+def main():
+    asyncio.run(export_chats())
+
+if __name__ == '__main__':
+    main()
+
+
+# Code from /Volumes/External/Netling AI/backend/app/openai.py
+# backend/app/openai.py
+import asyncio
+from app.config import settings
+import tiktoken
+from openai import AsyncOpenAI
+from app.config import settings
+
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+tokenizer = tiktoken.encoding_for_model(settings.MODEL)
+
+def token_size(text):
+    return len(tokenizer.encode(text))
+
+async def get_embedding(input, model=settings.EMBEDDING_MODEL, dimensions=settings.EMBEDDING_DIMENSIONS):
+    res = await client.embeddings.create(input=input, model=model, dimensions=dimensions)
+    return res.data[0].embedding
+
+
+def chat_stream(messages, model=settings.MODEL, temperature=0.1, **kwargs):
+    return client.beta.chat.completions.stream(
+        model=model,
+        messages=messages,
+        temperature=temperature,
+        **kwargs
+    )
+
+
+# Code from /Volumes/External/Netling AI/backend/app/loader.py
+# backend/app/loader.py
+
+import os
+import tempfile
+import logging
+from uuid import uuid4
+from urllib.parse import urlparse
+from app.config import settings
+from app.db import get_weaviate_client
+from langchain.docstore.document import Document
+from app.utils.splitter import TextSplitter
+from langchain.document_loaders import PyPDFLoader, UnstructuredWordDocumentLoader
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_weaviate.vectorstores import WeaviateVectorStore
+from pdfminer.high_level import extract_text
+import docx
+from urllib.parse import urlparse, unquote
+from fastapi import FastAPI
+from app.models import DocumentOut  # If needed
+logger = logging.getLogger(__name__)
+
+async def download_file(url: str) -> bytes:
+    """
+    Downloads a file from a given URL.
+    """
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                return await resp.read()
+            else:
+                raise RuntimeError(f"Failed to download file from {url} (Status: {resp.status})")
+
+async def ingest_and_index(file_url: str, upload_id: str,app: FastAPI):
+    try:
+        # Download the file
+        logger.info(f"Downloading file from {file_url}...")
+        file_content = await download_file(file_url)
+
+        # Parse the URL to get the filename
+        parsed_url = urlparse(file_url)
+        path = parsed_url.path
+        filename = os.path.basename(path)
+        filename = unquote(filename)
+        suffix = os.path.splitext(filename)[1].lower()
+        logger.debug(f"Determined file suffix: {suffix}")
+
+        if suffix not in ['.pdf', '.docx']:
+            raise ValueError("Unsupported file type. Only PDF and DOCX are supported.")
+
+        # Save to a temporary file for processing
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+
+        # Load the document
+        logger.info(f"Loading document from {temp_file_path}...")
+        if suffix == ".pdf":
+            text = extract_text(temp_file_path)
+        elif suffix == ".docx":
+            from io import BytesIO
+            doc = docx.Document(temp_file_path)
+            text = "\n".join([para.text for para in doc.paragraphs])
+        else:
+            raise ValueError("Unsupported file type. Only PDF and DOCX are supported.")
+
+        # Remove the temporary file
+        os.remove(temp_file_path)
+
+        # Split the document into chunks
+        logger.info("Splitting the document into chunks using custom TextSplitter...")
+        text_splitter = TextSplitter(chunk_size=512, chunk_overlap=20)
+        chunks = text_splitter.split(text)
+        logger.info(f"Split the document into {len(chunks)} chunks.")
+
+        # Convert chunks into LangChain Document objects with `upload_id` in metadata
+        documents = [Document(page_content=chunk, metadata={"source": file_url, "upload_id": upload_id}) for chunk in chunks]
+
+        # Generate embeddings for the chunks
+        logger.info("Generating embeddings for document chunks...")
+        embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+
+        # Connect to Weaviate
+        logger.info("Connecting to Weaviate...")
+        client = get_weaviate_client(app)
+
+        # Index the documents into Weaviate
+        logger.info("Indexing document chunks into Weaviate...")
+        vectorstore = WeaviateVectorStore.from_documents(
+            documents,
+            embeddings,
+            client=client,
+            index_name="ChatDocument",
+            text_key="content",
+        )
+
+        logger.info("Document successfully ingested and indexed into Weaviate.")
+
+    except Exception as e:
+        logger.error(f"Failed to ingest and index the document: {e}")
+        raise RuntimeError(f"Failed to ingest and index the document: {e}")
+
+
+#curl -X POST http://localhost:8000/upload/upload-file/ -H "Content-Type: multipart/form-data" -F "description=Sample Document Description" -F "file=@/Volumes/External/Netling AI/docs/Elke Nelting_Innenteil_END.pdf" -b "access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6ImJkMGFlMTRkMjhkMTY1NzhiMzFjOGJlNmM4ZmRlZDM0ZDVlMWExYzEiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiRnJlZGVyaWMiLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbmVsdGluZ2FpcmFnLTI3ZTMxIiwiYXVkIjoibmVsdGluZ2FpcmFnLTI3ZTMxIiwiYXV0aF90aW1lIjoxNzMzMzQ4NzM0LCJ1c2VyX2lkIjoiTU84dkZrV0dNNlA2OTlmY0pyMXl1eEE0NWdwMSIsInN1YiI6Ik1POHZGa1dHTTZQNjk5ZmNKcjF5dXhBNDVncDEiLCJpYXQiOjE3MzMzNDg3MzQsImV4cCI6MTczMzM1MjMzNCwiZW1haWwiOiJmcmVkQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJmcmVkQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.iJx3UxkgAOPUU3A-XMulwmEzynxBhG-Y093kbljBiVtNuZlIK0BxhTWoDCbkK0I3ZybfHy2kjQQgyVMPGkuK-IBCn2lFBuWA04An3G0l_4XX9XS2bIvhqqUy7Xsvj1tgK_1dFlOuDJW4RCQKym1RsOzqYvmPYRyioqb2j1bfQ7vrMuivs27Q6hdHtSMaWQ6cRjsQf8myWNthmIPsHjCSszJKn-S-ecsEuj5Lc1mB7VesM6xOuwzoIE-gVRU4r0DkqLkneI3iSB2xCgSZKoHZiTMNJvhCZUC5HEqZPhPUFxTuAFb56PyagBnm9tkyf-DE0B4w0-rD29kMuiV5QaQi6w"
+
+# Code from /Volumes/External/Netling AI/backend/app/firebase.py
+# backend/app/firebase.py
+
+import firebase_admin
+from firebase_admin import credentials, auth, firestore, storage
+from app.config import settings
+import logging
+from fastapi import APIRouter, FastAPI
+from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
+
+def initialize_firebase_app(app: FastAPI):
+    """
+    Initialize Firebase Admin SDK and store Firestore and Storage clients in app.state.
+    """
+    try:
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(settings.SERVICE_ACCOUNT_KEY_PATH)
+            firebase_admin.initialize_app(
+                cred,
+                {
+                    'storageBucket': settings.FIREBASE_STORAGE_BUCKET,
+                }
+            )
+            firestore_client = firestore.client()
+            storage_bucket = storage.bucket()
+            app.state.firestore_client = firestore_client
+            app.state.storage_bucket = storage_bucket
+            app.state.auth_client = auth
+            logger.info("Firebase Admin initialized and clients stored in app.state.")
+        else:
+            logger.info("Firebase Admin already initialized.")
+    except Exception as e:
+        logger.exception(f"Failed to initialize Firebase Admin: {e}")
+        raise e
+
+def close_firebase_app(app: FastAPI):
+    """
+    Close the Firebase Admin SDK and clean up resources.
+    """
+    try:
+        # Iterate over all initialized apps and delete them
+        for app_name in list(firebase_admin._apps):
+            firebase_admin.delete_app(firebase_admin.get_app(app_name))
+            logger.info(f"Firebase app '{app_name}' deleted successfully.")
+    except Exception as e:
+        logger.exception(f"Failed to close Firebase Admin SDK: {e}")
+        raise e
+
+def get_firestore_client(app: FastAPI):
+    """
+    Retrieve Firestore client from app.state.
+    """
+    client = getattr(app.state, "firestore_client", None)
+    if client is None:
+        logger.error("Firestore client is not initialized.")
+        raise RuntimeError("Firestore client is not initialized.")
+    return client
+
+def get_storage_bucket(app: FastAPI):
+    """
+    Retrieve Storage bucket from app.state.
+    """
+    bucket = getattr(app.state, "storage_bucket", None)
+    if bucket is None:
+        logger.error("Storage bucket is not initialized.")
+        raise RuntimeError("Storage bucket is not initialized.")
+    return bucket
+
+def get_auth_client(app: FastAPI):
+    """
+    Retrieve Auth client from app.state.
+    """
+    auth_client = getattr(app.state, "auth_client", None)
+    if auth_client is None:
+        logger.error("Auth client is not initialized.")
+        raise RuntimeError("Auth client is not initialized.")
+    return auth_client
+
+def verify_firebase_id_token(id_token: str, auth_client):
+    """
+    Verify Firebase ID token using the provided auth client.
+    """
+    try:
+        decoded_token = auth_client.verify_id_token(id_token)
+        uid = decoded_token['uid']
+        return uid
+    except Exception as e:
+        logger.error(f"Failed to verify ID token: {e}")
+        raise e
+
+# Firebase configuration endpoint for frontend
+router = APIRouter()
+
+@router.get("/firebase-config", tags=["Configuration"])
+def get_firebase_config():
+    config = {
+        "apiKey": settings.FRONTEND_FIREBASE_API_KEY,
+        "authDomain": settings.FRONTEND_FIREBASE_AUTH_DOMAIN,
+        "projectId": settings.FRONTEND_FIREBASE_PROJECT_ID,
+        "storageBucket": settings.FRONTEND_FIREBASE_STORAGE_BUCKET,
+        "messagingSenderId": settings.FRONTEND_FIREBASE_MESSAGING_SENDER_ID,
+        "appId": settings.FRONTEND_FIREBASE_APP_ID,
+        "measurementId": settings.FRONTEND_FIREBASE_MEASUREMENT_ID
+    }
+    return JSONResponse(content=config)
+
+
+# Code from /Volumes/External/Netling AI/backend/app/assistants/assistant.py
+# backend/app/assistants/assistant.py
+import asyncio
+import logging
+from operator import itemgetter
+from langchain.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from app.config import settings
+from app.utils.sse_stream import SSEStream
+from app.db import get_weaviate_client
+import firebase_admin.firestore as admin_firestore
+from datetime import datetime, timezone
+from langchain_weaviate.vectorstores import WeaviateVectorStore
+from langchain.schema import StrOutputParser
+from langfuse.callback import CallbackHandler
+import os
+from fastapi import FastAPI, Request, Depends
+
+
+
+# Get keys project from the project settings page
+
+
+# Initialize logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+
+def build_chain(app: FastAPI):
+    """Builds the LangChain pipeline-style LLMChain integrated with vector retrieval."""
+    try:
+        # Initialize embeddings
+        embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+        
+        client = get_weaviate_client(app)
+        vectorstore = WeaviateVectorStore(
+            client=client,
+            index_name="ChatDocument",
+            text_key="content",
+            embedding=embeddings,
+        )
+        retriever = vectorstore.as_retriever(search_kwargs={"k": settings.VECTOR_SEARCH_TOP_K})
+        
+        # Define the prompt template
+        template = """
+        Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
+        Hier ist der jetzige Konversationsverlauf zwischen dir und dem jetzigen Nutzer: {history}
+        Wenn dieser leer ist, begrüße den Nutzer bitte mit seinem Namen: {name}
+        Kontext:
+        {context}
+    
+        Frage: {question}
+        Antwort:
+        """
+        prompt = ChatPromptTemplate.from_template(template)
+        
+        # Initialize the ChatOpenAI model
+        model = ChatOpenAI(
+            model_name=settings.MODEL,
+            temperature=0.2,
+            openai_api_key=settings.OPENAI_API_KEY,
+            streaming=True
+        )
+        
+        # Build the pipeline-style chain
+        chain = (
+            {
+                "context": itemgetter("question") | retriever,
+                "question": itemgetter("question"),
+                "name": itemgetter("username"),
+                "history": itemgetter("history")
+            }
+            | prompt
+            | model
+            | StrOutputParser()
+        )
+        
+        logger.info("Pipeline-style chain successfully built.")
+        return chain
+    except Exception as e:
+        logger.error(f"Failed to build chain: {e}")
+        raise e
+
+class RAGAssistant():
+    assistants = {}  # Class-level dictionary to store assistant instances
+
+    @classmethod
+    def get_assistant(cls, chat_id):
+        return cls.assistants.get(chat_id)
+    def __init__(self, chat_id: str, firestore_client, user_id: str, user_name: str, history_size: int = 4,app: FastAPI = None):
+        self.app = app
+        self.chat_id = chat_id
+        self.firestore = firestore_client
+        self.user_id = user_id
+        self.history_size = history_size
+        self.user_name = user_name
+        # Build pipeline-style chain with integrated retriever
+        self.chain = build_chain(self.app)
+
+        self.sse_stream = SSEStream()
+        self.chat_ref = self.firestore.collection('chats').document(chat_id)
+        
+        self.initialize_chat()
+        RAGAssistant.assistants[chat_id] = self  # Store instance in class-level dict
+    def initialize_chat(self):
+        try:
+            chat_data = self.chat_ref.get().to_dict()
+            if not chat_data:
+                asyncio.create_task(self._async_firestore_set({
+                    'user_id': self.user_id,
+                    'created_at': datetime.now(timezone.utc),
+                    'messages': []
+                }))
+                logger.info(f"Initialized new chat with chat_id: {self.chat_id}")
+            else:
+                logger.info(f"Chat {self.chat_id} already exists.")
+        except Exception as e:
+            logger.error(f"Failed to initialize chat {self.chat_id}: {e}")
+
+
+    async def _handle_conversation_task(self, message: str):
+        try:
+            # Append user message to Firestore asynchronously
+            user_message = {
+                'role': 'user',
+                'content': message,
+                'created_at': datetime.now(timezone.utc)
+            }
+            await self._async_firestore_update({
+                'messages': admin_firestore.ArrayUnion([user_message])
+            })
+            logger.info(f"User message appended to chat {self.chat_id}: {message}")
+
+            history = await self._fetch_and_format_history()
+
+            # Prepare the query with question (context retrieval is handled by the chain's retriever)
+            query = {
+                "question": message,
+                "username": self.user_name,
+                "history": history
+            }
+
+            # Initialize LangFuse CallbackHandler
+            langfuse_handler = CallbackHandler(public_key=settings.LANGFUSE_PUBLIC_KEY,secret_key=settings.LANGFUSE_SECRET_KEY,host="https://cloud.langfuse.com",session_id=self.chat_id,user_id=self.user_id)
+            langfuse_handler.auth_check()
+            # Initialize an empty string to collect the assistant's response
+            assistant_response = ""
+
+            # Execute the chain with the langfuse_handler
+            async for chunk in self.chain.astream(
+                query,
+                config={"callbacks": [langfuse_handler]}
+            ):
+                logger.info(repr(chunk))
+                # Each chunk is an AIMessageChunk or similar object
+                # Extract the content and send it via SSE
+                if hasattr(chunk, 'content'):
+                    token = chunk.content
+                    assistant_response += token
+                    await self.sse_stream.send(token)
+                else:
+                    token = str(chunk)
+                    assistant_response += token
+                    await self.sse_stream.send(token)
+
+            # After chain execution, store the full assistant response
+            assistant_message = {
+                'role': 'assistant',
+                'content': assistant_response,
+                'created_at': datetime.now(timezone.utc)
+            }
+            await self._async_firestore_update({
+                'messages': admin_firestore.ArrayUnion([assistant_message])
+            })
+            logger.info(f"Appended assistant response to chat {self.chat_id}")
+
+        except Exception as e:
+            logger.exception(f'Error in conversation task for chat_id {self.chat_id}')
+            await self.sse_stream.send(f"Error: {str(e)}")
+        finally:
+            await self.sse_stream.close()
+            RAGAssistant.assistants.pop(self.chat_id, None)
+            logger.info(f"Closed SSE stream for chat_id {self.chat_id}")
+
+
+    async def _fetch_and_format_history(self) -> str:
+        """
+        Fetches the last `history_size` messages from Firestore and formats them into a string.
+        """
+        try:
+            chat_snapshot = await self._async_firestore_get()
+            messages = chat_snapshot.to_dict().get('messages', [])
+            # Ensure messages are sorted by 'created_at'
+            messages_sorted = sorted(messages, key=lambda x: x['created_at'])
+            # Get the last `history_size` messages
+            last_messages = messages_sorted[-self.history_size:]
+            # Format messages into a string
+            history_str = ""
+            for msg in last_messages:
+                role = msg.get('role', 'unknown').capitalize()
+                content = msg.get('content', '')
+                history_str += f"{role}: {content}\n"
+            return history_str.strip()
+        except Exception as e:
+            logger.error(f"Failed to fetch and format history for chat {self.chat_id}: {e}")
+            return ""    
+        
+    async def handle_message(self, message: str):
+        self.message = message
+        self.process_task = asyncio.create_task(self._handle_conversation_task(message))
+
+    async def get_stream(self):
+        return self.sse_stream
+
+    async def _async_firestore_set(self, data: dict):
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(None, self.chat_ref.set, data)
+            logger.debug(f"Set data for chat_id {self.chat_id}: {data}")
+        except Exception as e:
+            logger.error(f"Failed to set data for chat_id {self.chat_id}: {e}")
+
+    async def _async_firestore_update(self, data: dict):
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(None, self.chat_ref.update, data)
+            logger.debug(f"Updated data for chat_id {self.chat_id}: {data}")
+        except Exception as e:
+            logger.error(f"Failed to update data for chat_id {self.chat_id}: {e}")
+            raise e
+
+    async def _async_firestore_get(self):
+        loop = asyncio.get_event_loop()
+        try:
+            chat_snapshot = await loop.run_in_executor(None, self.chat_ref.get)
+            logger.debug(f"Fetched data for chat_id {self.chat_id}")
+            return chat_snapshot
+        except Exception as e:
+            logger.error(f"Failed to fetch data for chat_id {self.chat_id}: {e}")
+            raise e
+
+# Code from /Volumes/External/Netling AI/backend/app/assistants/prompts.py
+# backend/app/assistants/prompts.py
+
+MAIN_SYSTEM_PROMPT = """
+You are a knowledgeable assistant specialized in answering questions about new technology trends, their applications in various sectors and their broader impacts.
+
+You have access to the 'QueryKnowledgeBaseTool,' which includes technology reports from the world's leading institutions. Use this tool to query the knowledge base and answer user questions.
+
+Do not rely on prior knowledge or make answers up. Always use the provided 'QueryKnowledgeBaseTool' to ensure your answers are grounded in the most up-to-date and accurate information available.
+
+If a user's question seems unrelated, try to find a relevant technology angle. Only if the question is completely outside the scope of technology, kindly remind the user of your specialization.
+"""
+
+RAG_SYSTEM_PROMPT = """
+You are a knowledgeable assistant specialized in answering questions about new technology trends, their applications in various sectors and their broader impacts. Use the sources provided by the 'QueryKnowledgeBaseTool' to answer the user's question. You must only use the facts from the sources in your answer.
+
+Make sure to reference and include relevant excerpts from the sources to support your answers. When providing an answer, mention the specific report from which the information was retrieved (e.g., "According to the [Report Name], ..."). Your answers must be accurate and grounded on truth.
+
+If the information needed to answer a question is not available in the sources, say that you don't have enough information and share any relevant facts you find.
+"""
+
+# Code from /Volumes/External/Netling AI/backend/app/utils/splitter.py
+# backend/app/utils/splitter.py
+# Inspired by LlamaIndex's Sentence Splitter
+# https://github.com/run-llama/llama_index/blob/main/llama_index/core/node_parser/text/sentence.py
+import nltk
+from functools import partial
+from app.openai import token_size
+
+nltk.download('punkt')
+
+sentence_tokenizer = nltk.tokenize.PunktSentenceTokenizer()
+
+def split_by_separator(text, sep):
+    splits = text.split(sep)
+    res = [s + sep for s in splits[:-1]]
+    if splits[-1]:
+        res.append(splits[-1])
+    return res
+
+def split_sentences(text):
+    spans = [s[0] for s in sentence_tokenizer.span_tokenize(text)] + [len(text)]
+    return [text[spans[i]:spans[i+1]] for i in range(len(spans) - 1)]
+
+class TextSplitter:
+    def __init__(self, chunk_size, chunk_overlap=0):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.splitters = [
+            partial(split_by_separator, sep='\n\n'),
+            partial(split_by_separator, sep='\n'),
+            split_sentences,
+            partial(split_by_separator, sep=' ')
+        ]
+    
+    def _split_recursive(self, text, level=0):
+        if token_size(text) <= self.chunk_size or level == len(self.splitters):
+            return [text]
+        
+        splits = []
+        for s in self.splitters[level](text):
+            if token_size(s) <= self.chunk_size:
+                splits.append(s)
+            else:
+                splits.extend(self._split_recursive(s, level + 1))
+        return splits
+
+    def _merge_splits(self, splits):
+        chunks = []
+        current_chunk = ''
+        current_splits = []
+
+        for split in splits:
+            if current_chunk and (token_size(current_chunk + split) > self.chunk_size):
+                trimmed_chunk = current_chunk.strip()
+                if trimmed_chunk:
+                    chunks.append(trimmed_chunk)
+                # Add overlap to next chunk
+                last_splits = current_splits
+                current_splits = []
+                current_chunk = ''
+                for s in reversed(last_splits):
+                    if (token_size(s + current_chunk) > self.chunk_overlap or
+                        token_size(s + current_chunk + split) > self.chunk_size
+                    ):
+                        break
+                    current_chunk = s + current_chunk
+                    current_splits.insert(0, s)
+
+            current_chunk += split
+            current_splits.append(split)
+        
+        trimmed_chunk = current_chunk.strip()
+        if trimmed_chunk:
+            chunks.append(trimmed_chunk)
+        return chunks
+
+    def split(self, text):
+        splits = self._split_recursive(text)
+        chunks = self._merge_splits(splits)
+        return chunks
+
+    def __call__(self, text):
+        return self.split(text)
+
+# Code from /Volumes/External/Netling AI/backend/app/utils/sse_stream.py
+# backend/app/utils/sse_stream.py
+import asyncio
+from sse_starlette import ServerSentEvent
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+class SSEStream:
+    def __init__(self) -> None:
+        self._queue = asyncio.Queue()
+        self._stream_end = object()
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        data = await self._queue.get()
+        logger.info(f"Stream: {repr(data)}")
+        if data is self._stream_end:
+            raise StopAsyncIteration
+        return ServerSentEvent(data=data)
+
+    async def send(self, data):
+        await self._queue.put(data)
+
+    async def close(self):
+        await self._queue.put(self._stream_end)
+
+# Code from /Volumes/External/Netling AI/backend/app/api/auth.py
+# backend/app/api/auth.py
+from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
+from app.models import UserOut, Token
+from app.firebase import get_auth_client, verify_firebase_id_token, get_firestore_client
+from app.config import settings
+import logging
+from firebase_admin import firestore
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+# Pydantic Models
+class UserIn(BaseModel):
+    email: str
+    password: str
+    username: str  # Added username field
+
+class UserOut(BaseModel):
+    uid: str
+    email: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+@router.post("/register", response_model=UserOut, tags=["Authentication"])
+def register(user_in: UserIn, request: Request):
+    try:
+        firestore_client = get_firestore_client(request.app)
+        # Create user in Firebase Authentication
+        user = get_auth_client().create_user(
+            email=user_in.email,
+            password=user_in.password,
+            display_name=user_in.username,  # Set display name as username
+        )
+        logger.info(f"User created with UID: {user.uid}")
+
+        # Create corresponding Firestore User document
+        user_doc_ref = firestore_client.collection('user').document(user.uid)  # Use 'user' collection for clarity
+        user_doc_ref.set({
+            "uid": user.uid,  # Store UID within the document
+            "username": user_in.username,
+            "email": user_in.email,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "profile_picture": "",  # Default empty or provide a default URL
+            "bio": "",
+            "last_active": firestore.SERVER_TIMESTAMP,
+            "role": "user"  # Assign default role
+        })
+        logger.info(f"Firestore User document created for UID: {user.uid}")
+
+        # Optionally, send email verification
+        # You can trigger email verification from the client-side using Firebase Client SDK
+
+        return UserOut(uid=user.uid, email=user.email)
+    except Exception as e:
+        logger.exception(f"Registration failed: {e}")  # Use logger.exception for stack trace
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/login", tags=["Authentication"])
+async def login(request: Request):
+    """
+    Endpoint to set the authentication token in an HTTP-only cookie.
+    The client should provide the token in the request body or headers.
+    """
+    try:
+        token = request.headers.get("Authorization")
+        if not token:
+            raise HTTPException(status_code=400, detail="Authorization token missing")
+
+        token = token.replace("Bearer ", "")
+        # Optionally, verify the token here if necessary
+
+        response = JSONResponse(content={"message": "Login successful"})
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=False,
+            secure=False,  # Set to True if using HTTPS
+            samesite="Strict",
+            path="/"  # Adjust based on your requirements
+        )
+        return response
+    except Exception as e:
+        logger.exception(f"Login failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/logout", tags=["Authentication"])
+def logout():
+    """
+    Logs out the user by clearing the access_token cookie.
+    """
+    response = JSONResponse(content={"message": "Logout successful"})
+    response.delete_cookie(key="access_token", path="/")
+    return response
+
+# Code from /Volumes/External/Netling AI/backend/app/api/chat_create.py
+# backend/app/api/chat_create.py
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+from typing import Optional
+from app.firebase import get_firestore_client
+from app.api.dependencies import get_current_user
+from uuid import uuid4
+from datetime import datetime, timezone
+import logging
+import asyncio
+
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+class NewChatResponse(BaseModel):
+    chat_id: str
+
+@router.post("/new", response_model=NewChatResponse, tags=["Chat"])
+async def create_new_chat(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    
+):
+    """
+    Endpoint to create a new chat. Generates a unique chat_id and initializes the chat document in Firestore.
+    
+    """
+    firestore_client = get_firestore_client(request.app)
+    uid = current_user['uid']
+    chat_id = f"chat_{uuid4().hex}"
+    chat_ref = firestore_client.collection('chats').document(chat_id)
+    
+    try:
+        await asyncio.to_thread(chat_ref.set, {
+            'user_id': uid,
+            'created_at': datetime.now(timezone.utc),
+            'messages': []
+        })
+        logger.info(f"New chat created with chat_id: {chat_id} for user_id: {uid}")
+        return NewChatResponse(chat_id=chat_id)
+    except Exception as e:
+        logger.exception(f"Failed to create new chat for user_id {uid}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create new chat.")
+
+# Code from /Volumes/External/Netling AI/backend/app/api/index.py
+# backend/app/api/index.py
+from fastapi import APIRouter, HTTPException, Depends
+import logging
+
+from app.loader import ingest_and_index
+from app.config import settings
+from app.api.auth import verify_firebase_token
+
+router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
+@router.post("/build-index/")
+async def build_index_endpoint(
+    file_url: str,
+    uid: str = Depends(verify_firebase_token),
+):
+    """
+    Endpoint to parse a PDF or DOCX file and build indices using LangChain.
+    """
+    try:
+        # Ingest and index the document from the provided URL
+        await ingest_and_index(file_url)
+
+        logger.info(f"Index built for file: {file_url}")
+
+        return {"message": "Index built successfully."}
+
+    except Exception as e:
+        logger.error(f"Error building index: {e}")
+        raise HTTPException(status_code=500, detail=f"Error building index: {str(e)}")
+
+# Code from /Volumes/External/Netling AI/backend/app/api/upload.py
+# backend/app/api/upload.py
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Form, Request
+import os
+import aiofiles
+import logging
+from datetime import timedelta, datetime
+import asyncio
+from app.api.dependencies import get_current_admin  # Assuming only admins can upload
+from app.loader import ingest_and_index
+from app.config import settings
+from app.firebase import get_storage_bucket, get_firestore_client
+from uuid import uuid4
+from requests import request
+router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
+@router.post("/upload-file/", status_code=201, tags=["Upload"])
+async def upload_file(
+    request: Request,
+    description: str = Form(...),  # New field for document description
+    file: UploadFile = File(...),
+    admin_user: dict = Depends(get_current_admin),  # Only admins can upload
+):
+    logger.debug(f"Received request to upload file: {file.filename}")
+    
+    try:
+        firestore_client = get_firestore_client(request.app)
+
+        cleaned_filename = file.filename.strip()
+        if not (cleaned_filename.endswith(".pdf") or cleaned_filename.endswith(".docx")):
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file type. Only PDF and DOCX are supported.",
+            )
+
+        # Log admin user details
+        logger.debug(f"Admin user details: {admin_user}")
+
+        # Define the storage path in Firebase Storage
+        storage_bucket = get_storage_bucket(request.app)
+        blob_path = f"uploads/{admin_user.get('uid')}/{cleaned_filename}"
+        blob = storage_bucket.blob(blob_path)
+        logger.debug(f"Firebase blob path: {blob_path}")
+
+        # Define upload_id
+        upload_id = str(uuid4())
+        logger.debug(f"Generated upload_id: {upload_id}")
+
+        # Read file content and calculate size
+        file_content = await file.read()
+        file_size = len(file_content)  # Calculate file size in bytes
+        logger.debug(f"File size: {file_size} bytes")
+
+        # Save to a temporary file for uploading
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+        temp_file_path = os.path.join(settings.UPLOAD_DIR, f"{upload_id}_{cleaned_filename}")
+        logger.debug(f"Saving file locally at: {temp_file_path}")
+
+        async with aiofiles.open(temp_file_path, "wb") as out_file:
+            await out_file.write(file_content)
+
+        logger.debug(f"File saved locally. Uploading to Firebase Storage...")
+
+        # Upload file to Firebase Storage
+        await asyncio.to_thread(blob.upload_from_filename, temp_file_path, content_type=file.content_type)
+        logger.debug(f"File uploaded to Firebase Storage successfully.")
+
+        # Remove the temporary file
+        os.remove(temp_file_path)
+        logger.debug(f"Temporary file {temp_file_path} removed.")
+
+        # Generate a signed URL
+        download_url = blob.generate_signed_url(expiration=timedelta(days=1))
+        logger.debug(f"Generated signed URL: {download_url}")
+
+        # Get Firestore client
+        if not firestore_client:
+            logger.error("Firestore client is not initialized.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error.",
+            )
+
+        # Create Firestore document
+        firestore_collection = firestore_client.collection("documents")
+        firestore_doc = firestore_collection.document(upload_id)  # Using upload_id as document ID
+
+        document_metadata = {
+            "description": description,
+            "file_name": cleaned_filename,
+            "file_type": file.content_type,
+            "file_url": download_url,
+            "size": file_size,
+            "upload_id": upload_id,
+            "uploaded_at": datetime.utcnow(),
+            "user_id": admin_user.get("uid"),
+        }
+
+        await asyncio.to_thread(firestore_doc.set, document_metadata)
+        logger.debug(f"Firestore document {upload_id} created successfully.")
+
+        # Ingest and index the document
+        logger.debug("Starting ingestion and indexing of document...")
+        await ingest_and_index(download_url, upload_id, request.app)
+
+        logger.info(f"File {cleaned_filename} ingested and indexed successfully.")
+        return {"message": "Document uploaded and index built successfully.", "download_url": download_url}
+
+    except HTTPException as http_exc:
+        logger.exception(f"HTTPException during upload: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"Error uploading and building index: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"An error occurred: {str(e)}"
+        )
+
+# Code from /Volumes/External/Netling AI/backend/app/api/documents.py
+# backend/app/api/documents.py
+
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from typing import List
+from app.models import DocumentOut  # Ensure this Pydantic model is defined appropriately
+from app.api.dependencies import get_current_user, get_current_admin # Authentication dependency
+from app.firebase import get_firestore_client, get_storage_bucket
+from app.db import get_weaviate_client
+from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
+from weaviate import Client
+import logging
+import asyncio
+from weaviate.classes.query import Filter
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+@router.get("/documents", response_model=List[DocumentOut], tags=["Documents"],)
+async def get_documents(request: Request,current_user: dict = Depends(get_current_user)):
+    """
+    Fetch a list of documents with metadata from Firestore.
+    """
+    firestore_client = get_firestore_client(request.app)
+    if not firestore_client:
+        logger.error("Firestore client is not initialized.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error.",
+        )
+    
+    try:
+        # Fetch all documents from Firestore 'documents' collection for the current user
+        docs = await asyncio.to_thread(lambda: firestore_client.collection("documents").where("user_id", "==", current_user.get("uid")).stream())
+        documents = []
+        for doc in docs:
+            doc_data = doc.to_dict()
+            documents.append(DocumentOut(
+                id=doc.id,
+                description=doc_data.get("description"),
+                file_name=doc_data.get("file_name"),
+                file_type=doc_data.get("file_type"),
+                file_url=doc_data.get("file_url"),
+                size=doc_data.get("size"),
+                upload_id=doc_data.get("upload_id"),
+                uploaded_at=doc_data.get("uploaded_at"),
+                user_id=doc_data.get("user_id")
+            ))
+        logger.info(f"Fetched {len(documents)} documents for user UID: {current_user.get('uid')}")
+        return documents
+    except Exception as e:
+        logger.exception(f"Failed to fetch documents: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch documents.",
+        )
+
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Documents"])
+async def delete_document(document_id: str,request: Request, current_user: dict = Depends(get_current_user)):
+    """
+    Delete a document and its associated data.
+    """
+    storage_bucket = get_storage_bucket(request.app)
+    weaviate_client = get_weaviate_client(request.app)
+    firestore_client = get_firestore_client(request.app)
+    if not firestore_client or not storage_bucket or not weaviate_client:
+        logger.error("One or more services are not initialized.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error.",
+        )
+
+    try:
+        # Get the document from Firestore
+        doc_ref = firestore_client.collection("documents").document(document_id)
+        doc_snapshot = await asyncio.to_thread(doc_ref.get)
+
+        if not doc_snapshot.exists:
+            logger.warning(f"Document {document_id} not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+        doc_data = doc_snapshot.to_dict()
+
+        # Check if the current user is the owner
+        if doc_data.get("user_id") != current_user.get("uid"):
+            logger.warning(f"User {current_user.get('uid')} attempted to delete a document they do not own.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this document.")
+        upload_id = doc_data.get("upload_id")
+        if upload_id:
+            try:
+                # Construct the filter for deleting objects
+                collection = weaviate_client.collections.get("ChatDocument")
+                collection.data.delete_many(
+                    where=Filter.by_property("upload_id").contains_any([upload_id])
+                )
+                logger.info(f"Deleted vectors from Weaviate for upload_id: {upload_id}")
+            except Exception as e:
+                logger.error(f"Failed to delete vectors from Weaviate: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to delete vectors from Weaviate: {e}",
+                )
+            logger.info(f"Deleted vectors from Weaviate for upload_id: {upload_id}")
+
+        # Delete the file from Firebase Storage
+        file_url = doc_data.get("file_url")
+        if file_url:
+            # Extract the blob path from the file URL
+            parsed_url = urlparse(file_url)
+
+            # Extract the path and decode it
+            blob_path = parsed_url.path.lstrip('/')
+            blob_path = unquote(blob_path)
+
+            # Ensure the blob path does not include the bucket name
+            bucket_name = storage_bucket.name
+            if blob_path.startswith(f"{bucket_name}/"):
+                blob_path = blob_path[len(f"{bucket_name}/"):]
+
+            logger.debug(f"Final blob path: {blob_path}")
+
+            # Now, blob_path should be ready for deletion
+            blob = storage_bucket.blob(blob_path)
+            await asyncio.to_thread(blob.delete)
+            logger.info(f"Deleted file from Firebase Storage: {blob_path}")
+
+        
+
+        # Delete the document from Firestore
+        await asyncio.to_thread(doc_ref.delete)
+        logger.info(f"Deleted document {document_id} from Firestore.")
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except Exception as e:
+        logger.exception(f"Failed to delete document {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document.",
+        )
+@router.get("/documents/sources", response_model=List[str], tags=["Documents"])
+async def get_unique_sources(request: Request,current_user: dict = Depends(get_current_user)):
+    """
+    Fetch a list of unique sources from Firestore documents for the current user.
+    """
+    firestore_client = get_firestore_client(request.app)
+    if not firestore_client:
+        logger.error("Firestore client is not initialized.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error.",
+        )
+    
+    try:
+        # Fetch all documents from Firestore 'documents' collection for the current user
+        docs = await asyncio.to_thread(lambda: firestore_client.collection("documents").where("user_id", "==", current_user.get("uid")).stream())
+        sources = set()
+        for doc in docs:
+            doc_data = doc.to_dict()
+            source = doc_data.get("source")
+            if source:
+                sources.add(source)
+        unique_sources = list(sources)
+        logger.info(f"Fetched {len(unique_sources)} unique sources for user UID: {current_user.get('uid')}")
+        return unique_sources
+    except Exception as e:
+        logger.exception(f"Failed to fetch unique sources: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch sources.",
+        )
+
+# Code from /Volumes/External/Netling AI/backend/app/api/__init__.py
+from .auth import router as auth_router
+from .chat import router as chat_router
+from .chat_create import router as chat_create_router
+from .upload import router as upload_router
+from .admin import router as admin_router
+from .documents import router as documents_router  # Importing documents_router
+
+# Define all app routers in a list for easy inclusion
+app_routers = [
+    auth_router,
+    chat_router,
+    chat_create_router,
+    upload_router,
+    admin_router,
+    documents_router  # Including documents_router in the list
+]
+
+
+# Code from /Volumes/External/Netling AI/backend/app/api/chat.py
+# backend/app/api/chat.py
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sse_starlette.sse import EventSourceResponse
+from app.models import ChatRequest, ChatResponse, User
+from app.api.dependencies import get_current_user  # Ensure correct import
+from app.assistants.assistant import RAGAssistant
+from app.firebase import get_firestore_client
+
+import logging
+import asyncio
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+@router.post("/{chat_id}/message", tags=["Chat"])
+async def post_message(
+    chat_id: str,
+    chat_in: ChatRequest,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    
+    firestore_client = get_firestore_client(request.app)
+    chat_ref = firestore_client.collection('chats').document(chat_id)
+    chat_doc = await asyncio.to_thread(chat_ref.get)
+    if not chat_doc.exists:
+        raise HTTPException(status_code=404, detail="Chat not found.")
+    if chat_doc.to_dict().get('user_id') != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to access this chat.")
+
+    assistant = RAGAssistant(
+        chat_id=chat_id,
+        firestore_client=firestore_client,
+        user_id=current_user["uid"],
+        user_name=current_user["username"],
+        app=request.app
+    )
+    await assistant.handle_message(chat_in.question)
+    return {"message": "Message received. You can now connect to the stream."}
+
+@router.get("/{chat_id}/stream", tags=["Chat"])
+async def stream_response(
+    chat_id: str,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    assistant = RAGAssistant.get_assistant(chat_id)
+    if not assistant:
+        raise HTTPException(status_code=400, detail="No message processing found for this chat.")
+    sse_stream = await assistant.get_stream()
+    return EventSourceResponse(sse_stream)
+
+# Code from /Volumes/External/Netling AI/backend/app/api/admin.py
+# backend/app/api/admin.py
+
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel
+from app.api.dependencies import get_current_admin
+from app.firebase import get_firestore_client
+import logging
+from app.models import AdminAssignRole
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+
+@router.post("/assign-role", status_code=200, tags=["Admin"])
+def assign_role(role_assignment: AdminAssignRole,request: Request, current_admin: dict = Depends(get_current_admin)):
+
+    firestore_client = get_firestore_client(request.app)
+    user_ref = firestore_client.collection('user').document(role_assignment.uid)
+    user_doc = user_ref.get()
+    if not user_doc.exists:
+        logger.error(f"Attempted to assign role to non-existent user: {role_assignment.uid}")
+        raise HTTPException(status_code=404, detail="User not found")
+    user_ref.update({"role": role_assignment.role})
+    logger.info(f"User {role_assignment.uid} assigned role {role_assignment.role} by admin {current_admin.get('uid')}")
+    return {"message": f"User {role_assignment.uid} assigned role {role_assignment.role} successfully."}
+
+# Code from /Volumes/External/Netling AI/backend/app/api/dependencies.py
+# backend/app/api/dependencies.py
+
+from fastapi import Request, Depends, HTTPException, status
+from firebase_admin import auth
+from app.firebase import get_auth_client, get_firestore_client
+import logging
+
+logger = logging.getLogger(__name__)
+
+def verify_firebase_token(token: str, auth_client = Depends(get_auth_client)):
+    """
+    Verify Firebase ID token using the Auth client.
+    """
+    try:
+        decoded_token = auth_client.verify_id_token(token)
+        return decoded_token
+    except auth.ExpiredIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired token"
+        )
+    except auth.InvalidIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    except Exception as e:
+        logger.error(f"Error verifying token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Error: {str(e)}"
+        )
+
+async def get_current_user(request: Request) -> dict:
+    """
+    Retrieve the current authenticated user from the request.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    
+    auth_client = get_auth_client(request.app)
+    try:
+        decoded_token = auth_client.verify_id_token(token)
+    except auth.ExpiredIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired token"
+        )
+    except auth.InvalidIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    except Exception as e:
+        logger.error(f"Error verifying token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+    uid = decoded_token.get("uid")
+    if not uid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+    # Fetch additional user information from Firestore
+    firestore_client = get_firestore_client(request.app)
+    user_doc = firestore_client.collection("user").document(uid).get()
+    if not user_doc.exists:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    user_data = user_doc.to_dict()
+    full_user_data = {**decoded_token, **user_data}
+    return full_user_data
+
+async def get_current_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """
+    Ensure that the current user has admin privileges.
+    """
+    try:
+        role = current_user.get("role", "user")
+        if role != "admin":
+            logger.warning(f"User {current_user.get('uid')} attempted to access admin-only route.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+    except Exception as e:
+        logger.error(f"Error in admin role verification: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+
+

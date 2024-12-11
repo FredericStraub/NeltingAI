@@ -18,9 +18,11 @@ router = APIRouter()
 async def post_message(
     chat_id: str,
     chat_in: ChatRequest,
+    request: Request,
     current_user: dict = Depends(get_current_user),
 ):
-    firestore_client = get_firestore_client()
+    
+    firestore_client = get_firestore_client(request.app)
     chat_ref = firestore_client.collection('chats').document(chat_id)
     chat_doc = await asyncio.to_thread(chat_ref.get)
     if not chat_doc.exists:
@@ -32,7 +34,8 @@ async def post_message(
         chat_id=chat_id,
         firestore_client=firestore_client,
         user_id=current_user["uid"],
-        user_name=current_user["username"]
+        user_name=current_user["username"],
+        app=request.app
     )
     await assistant.handle_message(chat_in.question)
     return {"message": "Message received. You can now connect to the stream."}

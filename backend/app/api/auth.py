@@ -1,7 +1,6 @@
 # backend/app/api/auth.py
 from fastapi.responses import JSONResponse
-from fastapi import Request
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from app.models import UserOut, Token
@@ -31,18 +30,18 @@ class Token(BaseModel):
 
 
 @router.post("/register", response_model=UserOut, tags=["Authentication"])
-def register(user_in: UserIn):
+def register(user_in: UserIn, request: Request):
     try:
+        firestore_client = get_firestore_client(request.app)
         # Create user in Firebase Authentication
         user = get_auth_client().create_user(
             email=user_in.email,
             password=user_in.password,
-            display_name=user_in.username  # Set display name as username
+            display_name=user_in.username,  # Set display name as username
         )
         logger.info(f"User created with UID: {user.uid}")
 
         # Create corresponding Firestore User document
-        firestore_client = get_firestore_client()
         user_doc_ref = firestore_client.collection('user').document(user.uid)  # Use 'user' collection for clarity
         user_doc_ref.set({
             "uid": user.uid,  # Store UID within the document

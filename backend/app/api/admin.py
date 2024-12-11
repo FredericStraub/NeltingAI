@@ -1,6 +1,6 @@
 # backend/app/api/admin.py
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from app.api.dependencies import get_current_admin
 from app.firebase import get_firestore_client
@@ -13,8 +13,9 @@ router = APIRouter()
 
 
 @router.post("/assign-role", status_code=200, tags=["Admin"])
-def assign_role(role_assignment: AdminAssignRole, current_admin: dict = Depends(get_current_admin)):
-    firestore_client = get_firestore_client()
+def assign_role(role_assignment: AdminAssignRole,request: Request, current_admin: dict = Depends(get_current_admin)):
+
+    firestore_client = get_firestore_client(request.app)
     user_ref = firestore_client.collection('user').document(role_assignment.uid)
     user_doc = user_ref.get()
     if not user_doc.exists:

@@ -1,20 +1,30 @@
-# backend/app/export.py
+# export.py
 
 import os
 import json
 import asyncio
 from datetime import timezone
-from app.firebase import get_firestore_client
 from app.config import settings
-
+from firebase_admin import credentials, firestore, initialize_app
 import logging
 
 logger = logging.getLogger(__name__)
 
+def initialize_export_firebase():
+    try:
+        cred = credentials.Certificate(settings.SERVICE_ACCOUNT_KEY_PATH)
+        initialize_app(cred)
+        firestore_client = firestore.client()
+        logger.info("Firebase Admin initialized for export.")
+        return firestore_client
+    except Exception as e:
+        logger.exception(f"Failed to initialize Firebase Admin for export: {e}")
+        raise e
+
 async def export_chats(export_dir=settings.EXPORT_DIR, iso_format=True):
     print('Exporting chats to JSON')
     file_path = os.path.join(export_dir, 'chats.json')
-    firestore_client = get_firestore_client()
+    firestore_client = initialize_export_firebase()
     chats_ref = firestore_client.collection('chats')  # Ensure 'chats' is lowercase
     chats = []
 

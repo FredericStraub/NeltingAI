@@ -1,6 +1,6 @@
 # backend/app/api/documents.py
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from typing import List
 from app.models import DocumentOut  # Ensure this Pydantic model is defined appropriately
 from app.api.dependencies import get_current_user, get_current_admin # Authentication dependency
@@ -16,12 +16,12 @@ from weaviate.classes.query import Filter
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/documents", response_model=List[DocumentOut], tags=["Documents"])
-async def get_documents(current_user: dict = Depends(get_current_user)):
+@router.get("/documents", response_model=List[DocumentOut], tags=["Documents"],)
+async def get_documents(request: Request,current_user: dict = Depends(get_current_user)):
     """
     Fetch a list of documents with metadata from Firestore.
     """
-    firestore_client = get_firestore_client()
+    firestore_client = get_firestore_client(request.app)
     if not firestore_client:
         logger.error("Firestore client is not initialized.")
         raise HTTPException(
@@ -56,14 +56,13 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
         )
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Documents"])
-async def delete_document(document_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_document(document_id: str,request: Request, current_user: dict = Depends(get_current_user)):
     """
     Delete a document and its associated data.
     """
-    firestore_client = get_firestore_client()
-    storage_bucket = get_storage_bucket()
-    weaviate_client = get_weaviate_client()
-
+    storage_bucket = get_storage_bucket(request.app)
+    weaviate_client = get_weaviate_client(request.app)
+    firestore_client = get_firestore_client(request.app)
     if not firestore_client or not storage_bucket or not weaviate_client:
         logger.error("One or more services are not initialized.")
         raise HTTPException(
@@ -140,11 +139,11 @@ async def delete_document(document_id: str, current_user: dict = Depends(get_cur
             detail="Failed to delete document.",
         )
 @router.get("/documents/sources", response_model=List[str], tags=["Documents"])
-async def get_unique_sources(current_user: dict = Depends(get_current_user)):
+async def get_unique_sources(request: Request,current_user: dict = Depends(get_current_user)):
     """
     Fetch a list of unique sources from Firestore documents for the current user.
     """
-    firestore_client = get_firestore_client()
+    firestore_client = get_firestore_client(request.app)
     if not firestore_client:
         logger.error("Firestore client is not initialized.")
         raise HTTPException(

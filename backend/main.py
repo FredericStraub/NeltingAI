@@ -1,5 +1,4 @@
 # backend/main.py
-
 from fastapi import FastAPI, Request, Depends
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,10 +13,31 @@ import sys
 from app.db import close_weaviate_client, get_weaviate_client
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.documents import router as documents_router
+from fastapi import FastAPI, Request, Depends
+from contextlib import asynccontextmanager
+from app.api import (
+    auth_router,
+    chat_router,
+    chat_create_router,
+    upload_router,
+    admin_router,
+    documents_router
+)
+from app.firebase import initialize_firebase_app, close_firebase_app
+from app.db import (
+    initialize_weaviate_client,
+    ensure_weaviate_schema,
+    test_weaviate_connection,
+    close_weaviate_client
+)
+from app.config import settings
+import logging
+import sys
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout)
@@ -26,17 +46,53 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class DebugMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next):
         if "Authorization" in request.headers:
-            print(f"Authorization Header: {request.headers['Authorization']}")
+            logger.debug(f"Authorization Header: {request.headers['Authorization']}")
         response = await call_next(request)
         return response
 
-# Initialize FastAPI application
+# Define the lifespan context manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        # Startup logic
+        initialize_firebase_app(app)
+        logger.info("Firebase initialized.")
+        
+        initialize_weaviate_client(app)
+        logger.info("Weaviate client initialized.")
+        
+        ensure_weaviate_schema(app)
+        logger.info("Weaviate schema ensured.")
+        
+        test_weaviate_connection(app)
+        logger.info("Weaviate connection tested.")
+        
+        logger.info("Application startup complete.")
+        
+        yield  # Application runs here
+        
+    except Exception as e:
+        logger.exception(f"Error during startup: {e}")
+        sys.exit(1)  # Exit the application if startup fails
+        
+    finally:
+        # Shutdown logic
+        close_weaviate_client(app)
+        logger.info("Weaviate client closed.")
+        
+        close_firebase_app(app)
+        logger.info("Firebase Admin SDK closed.")
+        
+        logger.info("Application shutdown complete.")
+
+# Initialize FastAPI application with lifespan
 app = FastAPI(
     title="NeltingAI",
     description="An AI-driven application with authentication, chat, and upload functionalities.",
-    version="1.0.0",
+    version="1.0.0.",
+    lifespan=lifespan  # Pass the lifespan context manager here
 )
 
 # Add CORS middleware
@@ -58,8 +114,32 @@ app.include_router(firebase_config_router, tags=["Configuration"])
 app.include_router(documents_router, prefix="/api", tags=["Documents"])  # Include Documents Router
 app.add_middleware(DebugMiddleware)
 
-# Serve frontend static files
-app.mount("/", StaticFiles(directory="/Volumes/External/Netling AI/frontend", html=True), name="frontend")
+
+# Serve frontend static files with SPA fallback
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
+from pathlib import Path
+import os
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 404 and not path.startswith("api"):
+            index_path = os.path.join(self.directory, "index.html")
+            if os.path.exists(index_path):
+                return FileResponse(index_path)
+        return response
+
+# Define the frontend directory using pathlib for better path handling
+frontend_dir = Path("/Volumes/External/Netling AI/frontend")
+
+# Verify that the directory exists
+if not frontend_dir.is_dir():
+    logger.error(f"Frontend directory does not exist: {frontend_dir}")
+    sys.exit(1)
+
+# Mount static files using the custom SPAStaticFiles class
+app.mount("/", SPAStaticFiles(directory=str(frontend_dir), html=True), name="frontend")
 
 # Health Check Endpoint
 @app.get('/health', tags=["Health Check"])
@@ -80,29 +160,3 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": exc.errors(), "body": exc.body},
     )
-
-@app.on_event("startup")
-def customize_openapi():
-    if not app.openapi_schema:
-        openapi_schema = app.openapi()
-        openapi_schema["components"]["securitySchemes"] = {
-            "BearerAuth": {
-                "type": "http",
-                "scheme": "bearer",
-                "bearerFormat": "JWT",
-            }
-        }
-        openapi_schema["security"] = [{"BearerAuth": []}]  # Apply globally
-        app.openapi_schema = openapi_schema
-
-# Startup Event to initialize resources
-@app.on_event("startup")
-async def startup_event():
-    get_weaviate_client()
-    logger.info("Application startup complete.")
-
-# Shutdown Event to close Weaviate client (if necessary)
-@app.on_event("shutdown")
-async def shutdown_event():
-    close_weaviate_client()
-    logger.info("Application shutdown complete.")

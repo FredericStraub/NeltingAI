@@ -13,6 +13,9 @@ from langchain_weaviate.vectorstores import WeaviateVectorStore
 from langchain.schema import StrOutputParser
 from langfuse.callback import CallbackHandler
 import os
+from fastapi import FastAPI, Request, Depends
+
+
 
 # Get keys project from the project settings page
 
@@ -22,13 +25,13 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def build_chain():
+def build_chain(app: FastAPI):
     """Builds the LangChain pipeline-style LLMChain integrated with vector retrieval."""
     try:
         # Initialize embeddings
         embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
         
-        client = get_weaviate_client()
+        client = get_weaviate_client(app)
         vectorstore = WeaviateVectorStore(
             client=client,
             index_name="ChatDocument",
@@ -77,20 +80,21 @@ def build_chain():
         logger.error(f"Failed to build chain: {e}")
         raise e
 
-class RAGAssistant:
+class RAGAssistant():
     assistants = {}  # Class-level dictionary to store assistant instances
 
     @classmethod
     def get_assistant(cls, chat_id):
         return cls.assistants.get(chat_id)
-    def __init__(self, chat_id: str, firestore_client, user_id: str, user_name: str, history_size: int = 4):
+    def __init__(self, chat_id: str, firestore_client, user_id: str, user_name: str, history_size: int = 4,app: FastAPI = None):
+        self.app = app
         self.chat_id = chat_id
         self.firestore = firestore_client
         self.user_id = user_id
         self.history_size = history_size
         self.user_name = user_name
         # Build pipeline-style chain with integrated retriever
-        self.chain = build_chain()
+        self.chain = build_chain(self.app)
 
         self.sse_stream = SSEStream()
         self.chat_ref = self.firestore.collection('chats').document(chat_id)

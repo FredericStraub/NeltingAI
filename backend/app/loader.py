@@ -15,6 +15,7 @@ from langchain_weaviate.vectorstores import WeaviateVectorStore
 from pdfminer.high_level import extract_text
 import docx
 from urllib.parse import urlparse, unquote
+from fastapi import FastAPI
 from app.models import DocumentOut  # If needed
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ async def download_file(url: str) -> bytes:
             else:
                 raise RuntimeError(f"Failed to download file from {url} (Status: {resp.status})")
 
-async def ingest_and_index(file_url: str, upload_id: str):
+async def ingest_and_index(file_url: str, upload_id: str,app: FastAPI):
     try:
         # Download the file
         logger.info(f"Downloading file from {file_url}...")
@@ -81,7 +82,7 @@ async def ingest_and_index(file_url: str, upload_id: str):
 
         # Connect to Weaviate
         logger.info("Connecting to Weaviate...")
-        client = get_weaviate_client()
+        client = get_weaviate_client(app)
 
         # Index the documents into Weaviate
         logger.info("Indexing document chunks into Weaviate...")
@@ -100,4 +101,3 @@ async def ingest_and_index(file_url: str, upload_id: str):
         raise RuntimeError(f"Failed to ingest and index the document: {e}")
 
 
-#curl -X POST http://localhost:8000/upload/upload-file/ -H "Content-Type: multipart/form-data" -F "description=Sample Document Description" -F "file=@/Volumes/External/Netling AI/docs/Elke Nelting_Innenteil_END.pdf" -b "access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6ImJkMGFlMTRkMjhkMTY1NzhiMzFjOGJlNmM4ZmRlZDM0ZDVlMWExYzEiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiRnJlZGVyaWMiLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbmVsdGluZ2FpcmFnLTI3ZTMxIiwiYXVkIjoibmVsdGluZ2FpcmFnLTI3ZTMxIiwiYXV0aF90aW1lIjoxNzMzMzQ4NzM0LCJ1c2VyX2lkIjoiTU84dkZrV0dNNlA2OTlmY0pyMXl1eEE0NWdwMSIsInN1YiI6Ik1POHZGa1dHTTZQNjk5ZmNKcjF5dXhBNDVncDEiLCJpYXQiOjE3MzMzNDg3MzQsImV4cCI6MTczMzM1MjMzNCwiZW1haWwiOiJmcmVkQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJmcmVkQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.iJx3UxkgAOPUU3A-XMulwmEzynxBhG-Y093kbljBiVtNuZlIK0BxhTWoDCbkK0I3ZybfHy2kjQQgyVMPGkuK-IBCn2lFBuWA04An3G0l_4XX9XS2bIvhqqUy7Xsvj1tgK_1dFlOuDJW4RCQKym1RsOzqYvmPYRyioqb2j1bfQ7vrMuivs27Q6hdHtSMaWQ6cRjsQf8myWNthmIPsHjCSszJKn-S-ecsEuj5Lc1mB7VesM6xOuwzoIE-gVRU4r0DkqLkneI3iSB2xCgSZKoHZiTMNJvhCZUC5HEqZPhPUFxTuAFb56PyagBnm9tkyf-DE0B4w0-rD29kMuiV5QaQi6w"
