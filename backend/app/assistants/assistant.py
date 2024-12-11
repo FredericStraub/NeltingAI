@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def build_chain(app: FastAPI):
+def build_chain(app: FastAPI,history_size: int):
     """Builds the LangChain pipeline-style LLMChain integrated with vector retrieval."""
     try:
         # Initialize embeddings
@@ -41,16 +41,28 @@ def build_chain(app: FastAPI):
         retriever = vectorstore.as_retriever(search_kwargs={"k": settings.VECTOR_SEARCH_TOP_K})
         
         # Define the prompt template
-        template = """
-        Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
-        Hier ist der jetzige Konversationsverlauf zwischen dir und dem jetzigen Nutzer: {history}
-        Wenn dieser leer ist, begrüße den Nutzer bitte mit seinem Namen: {name}
-        Kontext:
-        {context}
-    
-        Frage: {question}
-        Antwort:
-        """
+        if history_size == 0:
+            template = """
+            Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
+            Hier ist der jetzige Konversationsverlauf zwischen dir und dem jetzigen Nutzer: {history}
+            begrüße den Nutzer bitte mit seinem Namen: {name}
+            Kontext:
+            {context}
+
+            Frage: {question}
+            Antwort:
+            """
+        else:
+            template = """
+            Du bist ein Gesundheitsberater und beantwortest ausschließlich Fragen basierend auf den folgenden Textstücken der Familie Nelting. Verwende nur die bereitgestellten Informationen, um hilfreiche und präzise Antworten zu geben. Wenn du die Frage nicht beantworten kannst, empfehle, professionelle Hilfe in Anspruch zu nehmen.
+            Hier ist der jetzige Konversationsverlauf zwischen dir und dem jetzigen Nutzer: {history}
+
+            Kontext:
+            {context}
+
+            Frage: {question}
+            Antwort:
+            """
         prompt = ChatPromptTemplate.from_template(template)
         
         # Initialize the ChatOpenAI model
@@ -94,7 +106,7 @@ class RAGAssistant():
         self.history_size = history_size
         self.user_name = user_name
         # Build pipeline-style chain with integrated retriever
-        self.chain = build_chain(self.app)
+        self.chain = build_chain(self.app,self.history_size)
 
         self.sse_stream = SSEStream()
         self.chat_ref = self.firestore.collection('chats').document(chat_id)

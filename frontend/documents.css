@@ -160,32 +160,49 @@ body {
   flex-direction: column;
   height: 100%;
   margin-left: var(--sidebar-width);
-  padding: 20px;
+  padding: 20px; /* Consolidated padding */
   width: calc(100% - var(--sidebar-width));
   box-sizing: border-box;
   background-color: #2f2f2f;
   overflow: hidden; /* Prevent main content from scrolling */
 }
 
-.Uploaded-Docs-Header {
-    color: #c7b05a;
-}
 /* Documents Page Specific Styles */
+.documents-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background-color: #2f2f2f; /* Example background */
+}
+
+/* Documents container styling */
 .documents-container {
-    display: flex;
-    flex-direction: column;
-    margin-top: 20px;
-  }
-  
-  .document-section {
-    background-color: #3a3a39;
-    border: 1px solid var(--primary-color);
-    border-radius: 8px;
-    padding: 15px;
-    color: #ffffff;
-    margin-bottom: 15px;
-    transition: transform var(--transition-duration) ease, box-shadow var(--transition-duration) ease;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* Space between document sections */
+}
+
+/* Example styling for document sections */
+.document-section {
+  background-color: #3a3a39;
+  padding: 15px;
+  border: 1px solid #c7b05a;
+  border-radius: 5px;
+}
+
+/* Optional: Style scrollbar for better UX */
+.documents-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.documents-scrollable::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+
+.documents-scrollable::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0,0,0,0.4);
+}
   
   .document-section:hover {
     transform: translateY(-5px);
@@ -256,10 +273,6 @@ body {
     background-color: var(--secondary-color);
   }
   
-  /* Adjust main-content if necessary */
-  .main-content {
-    padding: 20px;
-  }
 .delete-button {
     background-color: transparent; /* Transparent background */
     border: 2px solid #d9534f; /* Red border */

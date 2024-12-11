@@ -17,7 +17,7 @@ class UserIn(BaseModel):
 class UserOut(BaseModel):
     uid: str
     email: str
-    username: str
+    access_token: str  
 
 class Token(BaseModel):
     access_token: str

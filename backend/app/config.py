@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     WEAVIATE_GRPC_PORT: int
     WEAVIATE_GRPC_SECURE: bool
     WEAVIATE_HTTP_SECURE: bool
+    WEAVIATE_API_KEY: str
+    WEAVIATE_URL: str
     MAIN_SYSTEM_PROMPT: str 
     LANGFUSE_SECRET_KEY: str
     LANGFUSE_PUBLIC_KEY: str

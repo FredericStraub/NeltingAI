@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - NeltingAI</title>
+  <link rel="stylesheet" href="register.css">
+</head>
+<body>
+  <header class="headerheader" id="header">
+    <div class="header-wrapper">
+      <h1 id="mainheader">Nelting AI</h1>
+      <a href="login.html" class="login-button">
+        Login
+        <span class="login-icon">
+          <img src="https://www.neltings-welt.de/files/daten/icon/icon-login.svg" alt="Login Icon" class="icon-image">
+        </span>
+      </a>
+    </div>
+  </header>
+
+  <div id="authSection">
+    <h2 class="authheader">Registrieren</h2>
+    <input type="email" id="registerEmail" placeholder="Email" required>
+    <span class="error-message" id="emailError"></span>
+
+    <input type="password" id="registerPassword" placeholder="Password" required>
+    <span class="error-message" id="passwordError"></span>
+
+    <input type="text" id="registerUsername" placeholder="Username" required>
+    <span class="error-message" id="usernameError"></span>
+
+    <button id="registerButton">Register</button>
+
+    <p class="auth-footer">
+      Bereits ein Konto? <a href="login.html">Jetzt <strong>einloggen</strong></a>.
+    </p>
+  </div>
+
+  <div id="message" class="system-message"></div> <!-- For messages -->
+
+  <script type="module">
+    import { signup } from './firebase.js';
+
+    const registerButton = document.getElementById('registerButton');
+    const messageDiv = document.getElementById('message');
+
+    // Error message elements
+    const emailError = document.getElementById('emailError');
+    const passwordError = document.getElementById('passwordError');
+    const usernameError = document.getElementById('usernameError');
+
+    // Clear error messages
+    function clearErrors() {
+      emailError.textContent = '';
+      passwordError.textContent = '';
+      usernameError.textContent = '';
+      messageDiv.textContent = '';
+      messageDiv.className = "system-message";
+    }
+
+    // Simple client-side validation
+    function validate(email, password, username) {
+      let isValid = true;
+
+      if (!email) {
+        emailError.textContent = "Email is required.";
+        isValid = false;
+      } else if (!/\S+@\S+\.\S+/.test(email)) {
+        emailError.textContent = "Invalid email format.";
+        isValid = false;
+      }
+
+      if (!password) {
+        passwordError.textContent = "Password is required.";
+        isValid = false;
+      } else if (password.length < 6) {
+        passwordError.textContent = "Password must be at least 6 characters.";
+        isValid = false;
+      }
+
+      if (!username) {
+        usernameError.textContent = "Username is required.";
+        isValid = false;
+      }
+
+      return isValid;
+    }
+
+    // Handle user registration
+    registerButton.addEventListener('click', async () => {
+      clearErrors();
+
+      const email = document.getElementById('registerEmail').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      const username = document.getElementById('registerUsername').value.trim();
+
+      if (!validate(email, password, username)) {
+        return;
+      }
+
+      try {
+        messageDiv.textContent = "Registering...";
+        messageDiv.className = "system-message message-loading";
+
+        // Sign up the user and automatically authenticate with custom token
+        const user = await signup(email, password, username);
+
+        messageDiv.textContent = `Registered successfully as ${user.displayName}`;
+        messageDiv.className = "system-message success";
+
+        // Get the ID token from the newly registered user
+        const idToken = await user.getIdToken();
+
+        // Call the login endpoint to set the cookie on the backend
+        const loginResponse = await fetch('http://127.0.0.1:8000/auth/login', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+          },
+          credentials: 'include', // Include cookies in the request
+        });
+
+        if (!loginResponse.ok) {
+          const errorData = await loginResponse.json();
+          throw new Error(errorData.detail || 'Login failed after signup.');
+        }
+
+        // Now the cookie is set, redirect to chat.html immediately
+        window.location.href = "chat.html";
+
+      } catch (error) {
+        messageDiv.textContent = `Registration failed: ${error.message}`;
+        messageDiv.className = "system-message error";
+      }
+    });
+  </script>
+</body>
+</html>

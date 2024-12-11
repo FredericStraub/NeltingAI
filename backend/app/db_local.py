@@ -7,7 +7,6 @@ import time
 from fastapi import FastAPI
 from weaviate.classes.init import AdditionalConfig, Timeout
 from weaviate.connect import ConnectionParams
-from weaviate.classes.init import Auth
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +18,25 @@ def initialize_weaviate_client(app: FastAPI):
     """
     try:
         # Use the connection helper function for local setup
-        client = weaviate.connect_to_weaviate_cloud(
-        cluster_url=settings.WEAVIATE_URL,
-        auth_credentials=Auth.api_key(settings.WEAVIATE_API_KEY),
-        )
-                # Uncomment and replace with your actual API key if needed
-                # auth_client_secret=Auth.api_key("your_api_key"),  
-                
-
+        client = weaviate.WeaviateClient(
+            connection_params=ConnectionParams.from_params(
+                http_port=settings.WEAVIATE_PORT,
+                http_host=settings.WEAVIATE_HOST,
+                grpc_port=settings.WEAVIATE_GRPC_PORT,
+                http_secure=settings.WEAVIATE_HTTP_SECURE,
+                grpc_secure=settings.WEAVIATE_GRPC_SECURE,  
+                grpc_host=settings.WEAVIATE_HOST  # Set to True if using gRPC over TLS
+            ),
+            # Uncomment and replace with your actual API key if needed
+            # auth_client_secret=Auth.api_key("your_api_key"),  
+            additional_headers={
+                "X-OpenAI-Api-Key": settings.OPENAI_API_KEY  # Ensure this is set correctly
+            },
+            additional_config=AdditionalConfig(
+                timeout=Timeout(init=30, query=60, insert=120)  # Adjust as needed
+            )
+)
+        client.connect()
         # Store the client in the application's state
         app.state.weaviate_client = client
         logger.info("Weaviate client initialized and stored in app.state.")

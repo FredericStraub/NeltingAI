@@ -41,14 +41,18 @@
       <!-- Header with Upload Button -->
       <div class="header-with-button">
         <h2 class="uploaded-docs-header">Uploaded Documents</h2>
-        <button id="uploadButton" class="upload-button"><i class="fas fa-upload"></i> Upload Document</button>
+        <button id="uploadButton" class="upload-button">
+          <i class="fas fa-upload"></i> Upload Document
+        </button>
         <!-- Hidden file input -->
         <input type="file" id="fileInput" accept=".pdf,.docx" style="display: none;">
       </div>
-
-      <!-- Documents Container -->
-      <div id="documentsContainer" class="documents-container">
-        <!-- Documents will be dynamically inserted here -->
+    
+      <!-- Scrollable Documents Container Wrapper -->
+      <div class="documents-scrollable">
+        <div id="documentsContainer" class="documents-container">
+          <!-- Documents will be dynamically inserted here -->
+        </div>
       </div>
     </main>
   </div>
